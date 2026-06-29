@@ -1,0 +1,1373 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Fidibaku — public runbook example</title>
+<style>
+  /* ===== Public runbook design system ===== */
+  :root {
+    --ground: #FAFAF8; --ink: #0B0B0C; --muted: #6B7076;
+    --hair: #E2E2DD; --hair-strong: #D3D3CC;
+    --green: #2F8F4E; --amber: #B7791F;
+    --grotesk: "Space Grotesk", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", "SFMono-Regular", Consolas, "Liberation Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; background: var(--ground); color: var(--ink);
+    font-family: var(--mono); font-size: 13px; line-height: 1.7; letter-spacing: 0.01em;
+    -webkit-font-smoothing: antialiased; text-rendering: geometricPrecision;
+  }
+  body::before { /* faint 48px engineering grid */
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: 0.22;
+    background-image: linear-gradient(var(--hair) 1px, transparent 1px), linear-gradient(90deg, var(--hair) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+  .wrap { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding: 0 32px 120px; }
+  .num { font-variant-numeric: tabular-nums; }
+  b, strong { font-weight: 500; color: var(--ink); }
+  em { font-style: italic; }
+  code { font-family: var(--mono); font-size: 12px; background: rgba(11,11,12,0.05); padding: 1px 5px; border: 1px solid var(--hair); border-radius: 2px; }
+  a { color: var(--ink); }
+
+  /* header */
+  header { padding: 54px 0 26px; border-bottom: 1px solid var(--hair); }
+  .eyebrow { display: inline-flex; align-items: center; gap: 12px; font: 400 11px/1 var(--mono); letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted); }
+  .eyebrow::before { content: ""; width: 22px; height: 1px; background: var(--ink); }
+  h1 { font-family: var(--grotesk); font-weight: 500; font-size: clamp(34px, 5.2vw, 54px); line-height: 1.06; letter-spacing: -0.02em; margin: 18px 0 14px; }
+  h1 .em { font-style: italic; }
+  .sub { color: var(--muted); font-size: 13px; max-width: 700px; line-height: 1.75; }
+  .sub b { color: var(--ink); }
+  .specsheet { display: flex; flex-wrap: wrap; margin-top: 24px; border: 1px solid var(--hair); width: fit-content; }
+  .specsheet .ss { padding: 8px 18px; border-right: 1px solid var(--hair); }
+  .specsheet .ss:last-child { border-right: none; }
+  .specsheet dt { margin: 0; font: 400 10px var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+  .specsheet dd { margin: 3px 0 0; font: 400 13px var(--mono); color: var(--ink); }
+
+  /* nav */
+  nav { position: sticky; top: 0; z-index: 20; background: rgba(250,250,248,0.9); backdrop-filter: blur(8px); border-bottom: 1px solid var(--hair); margin: 0 -32px 32px; padding: 9px 32px; }
+  .nav-inner { max-width: 1200px; margin: 0 auto; display: flex; gap: 4px; flex-wrap: wrap; }
+  .tab { font: 400 11px var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); background: transparent; border: 1px solid transparent; padding: 6px 11px; cursor: pointer; border-radius: 2px; transition: color .12s, background .12s; white-space: nowrap; }
+  .tab:hover { color: var(--ink); }
+  .tab.active { color: var(--ground); background: var(--ink); border-color: var(--ink); }
+
+  /* pages */
+  .page { display: none; }
+  .page.active { display: block; animation: fade .3s ease-out both; }
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  .fig { display: inline-flex; align-items: center; gap: 12px; font: 400 11px var(--mono); letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; }
+  .fig::before { content: ""; width: 22px; height: 1px; background: var(--ink); }
+  .page-head h2 { font-family: var(--grotesk); font-weight: 500; font-size: 30px; letter-spacing: -0.01em; margin: 6px 0 8px; }
+  .page-head p { color: var(--muted); max-width: 800px; margin: 0; line-height: 1.7; }
+  .sec-h { font-family: var(--grotesk); font-weight: 500; font-size: 19px; margin: 40px 0 14px; }
+
+  /* console (instrument) */
+  .console { position: relative; border: 1px solid var(--ink); background: var(--ground); }
+  .ctick { position: absolute; width: 11px; height: 11px; z-index: 3; }
+  .ctick::before { content: ""; position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: var(--ink); }
+  .ctick::after { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--ink); }
+  .ctick.tl { top: -6px; left: -6px; } .ctick.tr { top: -6px; right: -6px; } .ctick.bl { bottom: -6px; left: -6px; } .ctick.br { bottom: -6px; right: -6px; }
+  .con-bar { height: 34px; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; border-bottom: 1px solid var(--ink); font: 400 10.5px var(--mono); letter-spacing: 0.16em; text-transform: uppercase; }
+  .con-bar .l { display: flex; align-items: center; gap: 10px; }
+  .con-bar .r { color: var(--muted); }
+  .dot-id { border: 1px solid var(--ink); padding: 1px 6px; font-size: 9.5px; letter-spacing: 0.1em; }
+  .con-body { padding: 12px 18px; }
+  .row { display: grid; grid-template-columns: 116px 1fr 34px; align-items: baseline; column-gap: 16px; padding: 6px 0; border-bottom: 1px solid var(--hair); }
+  .row:last-child { border-bottom: none; }
+  .row .r-desc { font-size: 13px; line-height: 1.55; }
+  .row .r-desc .rw { color: var(--muted); }
+  .row .r-score { text-align: right; font-variant-numeric: tabular-nums; font-weight: 500; }
+  .row .r-score.hi { color: var(--green); }
+  .con-foot { border-top: 1px solid var(--hair); padding: 10px 18px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; font: 400 11px var(--mono); letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+  .con-foot .ok { color: var(--green); }
+
+  /* tier tokens + calibration */
+  .ttok { font: 400 11px var(--mono); letter-spacing: 0.03em; text-transform: uppercase; white-space: nowrap; }
+  .t-now { color: var(--green); } .t-next { color: var(--ink); } .t-skip { color: var(--muted); }
+  .calib { display: inline-flex; gap: 2px; vertical-align: middle; margin-right: 8px; }
+  .cseg { width: 4px; height: 11px; background: var(--hair-strong); }
+  .cseg.on { background: var(--green); }
+  .snum { font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 500; }
+  .snum.hi { color: var(--green); }
+
+  /* platform scorecards (calibration readout) */
+  .scards { border: 1px solid var(--hair); }
+  .scard { display: grid; grid-template-columns: 120px 150px 54px 1fr; align-items: center; gap: 16px; padding: 12px 16px; border-bottom: 1px solid var(--hair); }
+  .scard:last-child { border-bottom: none; }
+  .scard .nm { font-size: 13px; font-weight: 500; }
+  .scard .sv { font-variant-numeric: tabular-nums; color: var(--ink); font-size: 12px; }
+  .scard .nt { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+  /* paths */
+  .paths { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); border: 1px solid var(--hair); }
+  .pcard { padding: 16px 18px; border-right: 1px solid var(--hair); }
+  .pcard:last-child { border-right: none; }
+  .pcard h3 { margin: 0; font-size: 13px; letter-spacing: 0.04em; display: flex; gap: 10px; align-items: baseline; }
+  .pcard .ptag { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; }
+  .pcard p { margin: 8px 0 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+
+  /* note panel */
+  .notep { border: 1px solid var(--hair); padding: 6px 18px; }
+  .nrow { display: grid; grid-template-columns: 132px 1fr; gap: 14px; padding: 9px 0; border-bottom: 1px solid var(--hair); font-size: 12.5px; line-height: 1.55; }
+  .nrow:last-child { border-bottom: none; }
+  .nk { color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; font-size: 10.5px; }
+  .micro { margin-top: 12px; font-size: 12px; color: var(--muted); line-height: 1.6; }
+
+  /* matrix heatmap */
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; margin: 12px 0 14px; font-size: 11px; color: var(--muted); }
+  .legend .lg { display: inline-flex; align-items: center; gap: 6px; }
+  .legend .sep { width: 1px; height: 14px; background: var(--hair); }
+  .legend .sw { width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; }
+  .table-scroll { overflow-x: auto; border: 1px solid var(--hair); }
+  table.matrix { border-collapse: collapse; width: 100%; min-width: 760px; }
+  table.matrix th, table.matrix td { border-bottom: 1px solid var(--hair); padding: 0; }
+  table.matrix tbody tr:last-child td { border-bottom: none; }
+  table.matrix thead th { position: sticky; top: 0; background: var(--ground); border-bottom: 1px solid var(--ink); padding: 9px 8px; text-align: center; }
+  .act { text-align: left; padding: 9px 14px; font-size: 12.5px; color: var(--ink); min-width: 224px; }
+  table.matrix tbody tr:hover { background: rgba(11,11,12,0.018); }
+  .col-h { display: inline-flex; flex-direction: column; gap: 2px; align-items: center; }
+  .col-h .ab { font: 500 12px var(--mono); text-transform: uppercase; }
+  .col-h .ti { font: 400 9px var(--mono); letter-spacing: 0.1em; text-transform: uppercase; }
+  .col-h .ti.pri { color: var(--green); } .col-h .ti.sec { color: var(--muted); }
+  th.sec .ab { color: var(--muted); }
+  .divide { border-left: 2px solid var(--hair-strong) !important; }
+  td.cellbox { height: 40px; text-align: center; vertical-align: middle; }
+  td.sec { opacity: 0.5; }
+  .cellhas { display: inline-flex; gap: 3px; align-items: center; justify-content: center; }
+  .tl { font: 500 10px var(--mono); color: var(--ink); width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--hair-strong); border-radius: 2px; }
+  td.sec .tl { color: var(--muted); }
+  .star { color: var(--muted); font-size: 11px; }
+  .gap-mark { color: var(--hair-strong); font-size: 13px; }
+  td.gap.pri { background: rgba(183,121,31,0.08); }
+  td.gap.pri .gap-mark { color: var(--amber); }
+
+  /* surface reco */
+  .reco { margin-top: 18px; border: 1px solid var(--hair); border-left: 2px solid var(--ink); padding: 14px 18px; }
+  .reco h4 { margin: 0 0 8px; font: 400 11px var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); display: flex; gap: 10px; align-items: center; }
+  .reco p { margin: 0 0 8px; font-size: 13px; line-height: 1.6; }
+  .reco p:last-child { margin: 0; color: var(--muted); }
+
+  /* filters + gap ledger */
+  .filters { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+  .filt-label { font: 400 11px var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-right: 4px; }
+  .filt { font: 400 11px var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); background: var(--ground); border: 1px solid var(--hair); padding: 6px 11px; cursor: pointer; border-radius: 2px; }
+  .filt:hover { color: var(--ink); border-color: var(--hair-strong); }
+  .filt.active { color: var(--ground); background: var(--ink); border-color: var(--ink); }
+  table.gaps { border-collapse: collapse; width: 100%; min-width: 800px; }
+  table.plan { min-width: 1040px; }
+  .planlanes { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); border: 1px solid var(--hair); margin-bottom: 18px; }
+  .lane { padding: 12px 14px; border-right: 1px solid var(--hair); }
+  .lane:last-child { border-right: none; }
+  .lane h5 { margin: 0 0 9px; font: 400 10px var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+  .lane h5::before { content: ""; width: 14px; height: 1px; background: var(--ink); }
+  .lane .pr { font-size: 12px; color: var(--ink); padding: 3px 0; display: flex; gap: 8px; align-items: baseline; }
+  .lane .pr .n { font-family: var(--mono); color: var(--green); font-variant-numeric: tabular-nums; flex: 0 0 auto; }
+  .lane .arrow { color: var(--muted); font-size: 11px; text-align: center; padding: 6px 0 0; }
+  td.pr-numcell { font-family: var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .pr-scope { font-size: 13px; font-weight: 500; color: var(--ink); }
+  .pr-sub { display: block; font-size: 11.5px; color: var(--muted); margin-top: 3px; line-height: 1.45; }
+  .rat { font-size: 12px; color: var(--text); line-height: 1.55; min-width: 340px; }
+  .rat b { color: var(--ink); }
+  .brief-link { font: 500 11px var(--mono); letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink); border: 1px solid var(--hair-strong); border-radius: 2px; padding: 4px 8px; text-decoration: none; white-space: nowrap; }
+  .brief-link:hover { border-color: var(--green); color: var(--green); }
+  .muted-dash { color: var(--text-dim); }
+  tr.planrow-dim { opacity: 0.55; }
+  tr.planrow-dim:hover { opacity: 0.85; }
+  tr.planrow-next td:first-child { box-shadow: inset 3px 0 0 var(--green); }
+  tr.planrow-done { opacity: 0.72; }
+  tr.planrow-done td:first-child { box-shadow: inset 3px 0 0 var(--green); }
+  tr.planrow-done .pr-scope { text-decoration: line-through; text-decoration-color: var(--hair-strong); }
+  tr.planrow-merged { opacity: 0.66; }
+  tr.planrow-merged td:first-child { box-shadow: inset 3px 0 0 var(--green); }
+  tr.planrow-merged .pr-scope { text-decoration: line-through; text-decoration-color: var(--hair-strong); }
+  tr.planrow-review td:first-child { box-shadow: inset 3px 0 0 var(--amber); }
+  tr.planrow-dispatched td:first-child { box-shadow: inset 3px 0 0 var(--amber); }
+  .disp-chip { font: 500 10px var(--mono); letter-spacing: 0.04em; text-transform: uppercase; color: var(--amber); border: 1px solid var(--amber); border-radius: 2px; padding: 2px 6px; white-space: nowrap; }
+  .dep-hard { color: var(--ink); } .dep-none { color: var(--muted); }
+  table.gaps thead th { background: var(--ground); border-bottom: 1px solid var(--ink); text-align: left; padding: 10px 12px; font: 400 10.5px var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); position: sticky; top: 0; }
+  table.gaps td { border-bottom: 1px solid var(--hair); padding: 12px; vertical-align: top; }
+  tr.tier-row td { background: rgba(11,11,12,0.025); padding: 8px 12px; }
+  tr.tier-row .tc { color: var(--muted); font-size: 11px; margin-left: 10px; }
+  .gn { font-size: 13px; color: var(--ink); font-weight: 500; }
+  .gw { display: block; color: var(--muted); font-size: 12px; margin-top: 3px; line-height: 1.55; }
+  .gp, .gs, .ge { font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .c-score { white-space: nowrap; }
+  .footnote { margin-top: 20px; border-top: 1px solid var(--hair); padding-top: 14px; font-size: 12px; color: var(--muted); line-height: 1.6; }
+
+  .hint-bar { display: flex; align-items: center; gap: 8px; font: 400 11px var(--mono); letter-spacing: 0.04em; color: var(--muted); margin: 0 0 22px; padding: 8px 12px; border: 1px solid var(--hair); border-left: 2px solid var(--amber); background: rgba(183,121,31,0.04); }
+  .hint-bar b { color: var(--ink); font-weight: 500; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Public example · Review runbook · 2026-06-26</div>
+    <h1>Launch readiness gaps &amp; <span class="em">review plan</span></h1>
+    <p class="sub">A fictional release-readiness runbook for a software team. It demonstrates the same dense, tabbed HTML artifact style as the source template: dependency batches, capability matrices, scorecards, a gap ledger, and explicit review anchors for Fidibaku comments.</p>
+    <dl class="specsheet">
+      <div class="ss"><dt>Surfaces</dt><dd class="num">8</dd></div>
+      <div class="ss"><dt>Channels</dt><dd class="num">6</dd></div>
+      <div class="ss"><dt>Gaps scored</dt><dd class="num">14</dd></div>
+      <div class="ss"><dt>Source</dt><dd>public demo</dd></div>
+    </dl>
+  </header>
+
+  <nav><div class="nav-inner" id="tabs"></div></nav>
+  <div class="hint-bar"><b>▸ Right-click</b> any row, card, matrix line, or recommendation to leave a Fidibaku comment. Comments save to <code>examples/runbook.comments.json</code> and <code>examples/runbook.comments.md</code> when reviewed through the CLI.</div>
+
+  <section class="page active" data-page="plan">
+    <div class="page-head" data-review-id="view:plan" data-review-group="Build plan" data-review-label="General note · Build plan">
+      <div class="fig">Fig 0.0 / Execution plan</div>
+      <h2>Build plan &amp; runbook — sequenced work in dispatch batches</h2>
+      <p>Every build-worthy gap is represented as one implementation unit. The table groups work into <b>dependency dispatch batches</b>: Batch 1 can run in parallel; core readiness follows; instrumentation unlocks keyboard and comparison flows; release controls add archive and routing; cadence adds ongoing reminders. <b>Impact</b> estimates how much the work moves the user journey; <b>Value</b> is the raw reviewer/operator value.</p>
+    </div>
+    <div class="hint-bar" style="border-left-color:var(--green)"><b>Live status:</b> the fictional team has a working review loop and is now hardening assignment, handoff, access, and observability. The goal is a public-safe example that an agent can inspect, comment on, and use as a template.</div>
+    <div class="hint-bar"><b>▸ The goal:</b> make every review comment actionable. The HTML carries stable anchors, the sidecars carry structured feedback, and the linked briefs show the sort of implementation context an agent would read before making changes.</div>
+    <div class="hint-bar" style="border-left-color:var(--amber)"><b>▸ Demo safety:</b> all names, teams, links, and work items are fictional. This file intentionally contains no customer data, private repository names, live credentials, or internal implementation details.</div>
+    <div class="planlanes" id="planLanes"></div>
+    <div class="table-scroll">
+      <table class="gaps plan">
+        <thead><tr><th>#</th><th>Pull request (scope)</th><th>Depends on</th><th>Effort</th><th>Impact</th><th>Value</th><th>Brief</th><th>Rationale — why this order + why build it</th></tr></thead>
+        <tbody id="planBody"></tbody>
+      </table>
+    </div>
+    <p class="footnote"><b>Deferred:</b> branded themes, mobile matrix controls, and PDF snapshots wait until the core Markdown/JSON agent handoff is stable.</p>
+  </section>
+
+  <section class="page" data-page="overview">
+    <div class="page-head" data-review-id="view:overview" data-review-group="Overview" data-review-label="General note · Overview">
+      <div class="fig">Fig 0.1 / Priority queue</div>
+      <h2>Overview</h2>
+      <p>The highest-value gaps are below, followed by channel completeness, execution paths, and the headline asymmetry. Open a surface tab for side-by-side matrices, or Gap ledger for the full ranked list.</p>
+    </div>
+
+    <div class="console" id="heroConsole" style="margin-top:18px">
+      <span class="ctick tl"></span><span class="ctick tr"></span><span class="ctick bl"></span><span class="ctick br"></span>
+      <div class="con-bar">
+        <span class="l"><span class="dot-id">DEMO</span> Priority gaps · Portal · Admin · API</span>
+        <span class="r" id="heroBarRight"></span>
+      </div>
+      <div class="con-body" id="heroRows"></div>
+      <div class="con-foot">
+        <span id="heroFootL"></span>
+        <span class="ok">● ranked by review value</span>
+      </div>
+    </div>
+    <p class="micro"><b>Excluded from this public example:</b> real customer names, private repository links, operational credentials, live account handles, and business-specific incident history.</p>
+
+    <div class="fig" style="margin-top:40px">Fig 0.2 / Channel completeness</div>
+    <div class="scards" id="scorecards"></div>
+    <p class="micro">Completeness = how ready each channel is to support repeated human review and agent handoff, not just whether a screen exists.</p>
+
+    <div class="fig" style="margin-top:40px">Fig 0.3 / Execution paths</div>
+    <div class="paths" id="paths"></div>
+
+    <div class="fig" style="margin-top:40px">Fig 0.4 / The headline asymmetry</div>
+    <div class="notep" data-review-id="asym:headline" data-review-group="Overview" data-review-label="Headline asymmetry">
+      <div class="nrow"><span class="nk">Portal · Admin · API</span><span>The primary channels are close enough for real review loops, but they need assignment, handoff, and audit polish.</span></div>
+      <div class="nrow"><span class="nk">Mobile web</span><span>Useful for lightweight approvals, not yet good enough for dense matrix review.</span></div>
+      <div class="nrow"><span class="nk">Email / exports</span><span>Important for handoff and archive, but they should follow stable comment IDs and sidecar formats.</span></div>
+      <div class="nrow"><span class="nk">Deepest hole</span><span>Turning comments into accountable implementation work: owners, evidence, before/after comparison, and deterministic sidecars.</span></div>
+      <div class="nrow"><span class="nk">The moat</span><span>Review anchors survive regenerated HTML, so feedback stays attached to the decision it was about.</span></div>
+      <div class="nrow"><span class="nk">Invariant</span><span>comments → sidecars · agents → implementation · replies → resolution trail.</span></div>
+    </div>
+  </section>
+
+  <div id="surfaces"></div>
+
+  <section class="page" data-page="gaps">
+    <div class="page-head" data-review-id="view:gaps" data-review-group="Gap ledger" data-review-label="General note · Gap ledger">
+      <div class="fig">Fig 1.0 / Gap ledger</div>
+      <h2>Gap ledger</h2>
+      <p>Every gap ranked by <b>review value out of 10</b>, weighted by user friction, agent handoff value, implementation risk, and how much it improves repeated use.</p>
+    </div>
+    <div class="filters">
+      <span class="filt-label">channels</span>
+      <button class="filt scope active" data-scope="pri">Priority · Portal · Admin · API</button>
+      <button class="filt scope" data-scope="all">All channels</button>
+    </div>
+    <div class="filters" id="filters">
+      <span class="filt-label">tier</span>
+      <button class="filt active" data-filt="all">All tiers</button>
+      <button class="filt" data-filt="now">Build now</button>
+      <button class="filt" data-filt="next">Build next</button>
+      <button class="filt" data-filt="skip">Skip / defer</button>
+    </div>
+    <div class="table-scroll">
+      <table class="gaps">
+        <thead>
+          <tr><th>Gap</th><th>Channels</th><th>Surface</th><th>Effort</th><th>Value /10</th><th>Tier</th></tr>
+        </thead>
+        <tbody id="gapBody"></tbody>
+      </table>
+    </div>
+    <p class="footnote">Effort is example build-effort for a fictional product team. Source: public-safe demo data in this HTML file.</p>
+  </section>
+</div>
+<script>
+/* ----------------------------- data (public-safe) ----------------------------- */
+const PLATFORMS = [
+  {
+    "key": "portal",
+    "name": "Client Portal",
+    "abbr": "cp",
+    "col": 1,
+    "primary": true
+  },
+  {
+    "key": "admin",
+    "name": "Admin Console",
+    "abbr": "ad",
+    "col": 2,
+    "primary": true
+  },
+  {
+    "key": "api",
+    "name": "API",
+    "abbr": "api",
+    "col": 3,
+    "primary": true
+  },
+  {
+    "key": "mobile",
+    "name": "Mobile Web",
+    "abbr": "mw",
+    "col": 4,
+    "primary": false
+  },
+  {
+    "key": "email",
+    "name": "Email",
+    "abbr": "em",
+    "col": 5,
+    "primary": false
+  },
+  {
+    "key": "export",
+    "name": "Exports",
+    "abbr": "ex",
+    "col": 6,
+    "primary": false
+  }
+];
+const SCORECARDS = [
+  {
+    "name": "Client Portal",
+    "score": 8,
+    "note": "Strong path for onboarding, task review, status visibility, and approvals. Remaining gaps are bulk actions, inline explanations, and richer empty states."
+  },
+  {
+    "name": "Admin Console",
+    "score": 7,
+    "note": "Operational workflows are mostly covered, but exception queues, audit filters, and role-specific views still need polish."
+  },
+  {
+    "name": "API",
+    "score": 7,
+    "note": "Core endpoints are stable with request IDs and schema validation. Webhooks, pagination guarantees, and idempotency coverage are incomplete."
+  },
+  {
+    "name": "Mobile Web",
+    "score": 5,
+    "note": "Responsive layouts exist, but dense review tables, compare views, and filter controls need smaller-screen ergonomics."
+  },
+  {
+    "name": "Email",
+    "score": 4,
+    "note": "Transactional messages are reliable; digest preferences, unsubscribe states, and reply routing are still thin."
+  },
+  {
+    "name": "Exports",
+    "score": 3,
+    "note": "CSV exists for core tables. Scheduled exports, signed links, and field selection are not yet productized."
+  }
+];
+const PATHS = [
+  {
+    "name": "Browser",
+    "tag": "interactive",
+    "body": "User-facing screens where reviewers inspect context, leave comments, make decisions, and confirm that generated work is acceptable."
+  },
+  {
+    "name": "API",
+    "tag": "contract",
+    "body": "Programmatic access for agents and integrations. Handles validation, idempotency, pagination, and durable references."
+  },
+  {
+    "name": "Worker",
+    "tag": "async",
+    "body": "Background processing for import jobs, export generation, notifications, and slow reconciliation work."
+  }
+];
+const SURFACES = [
+  {
+    "id": "intake",
+    "title": "Intake & setup",
+    "blurb": "Creating a workspace, importing source material, assigning owners, and getting to the first reviewable artifact.",
+    "rows": [
+      [
+        "create workspace",
+        "browser, api",
+        "browser, api",
+        "api",
+        "browser",
+        "",
+        ""
+      ],
+      [
+        "import source material",
+        "browser, worker",
+        "browser, worker",
+        "api, worker",
+        "",
+        "",
+        ""
+      ],
+      [
+        "map fields / columns",
+        "browser",
+        "browser",
+        "api",
+        "",
+        "",
+        ""
+      ],
+      [
+        "invite reviewers",
+        "browser",
+        "browser",
+        "api",
+        "browser",
+        "email",
+        ""
+      ],
+      [
+        "template selection",
+        "browser",
+        "browser",
+        "api",
+        "browser",
+        "",
+        ""
+      ],
+      [
+        "initial validation report",
+        "browser, worker",
+        "browser",
+        "api, worker",
+        "browser",
+        "email",
+        ""
+      ]
+    ],
+    "reco": {
+      "tier": "now",
+      "lead": "The first-session path is close; make failures explicit before adding more templates.",
+      "body": "Ship clearer import validation, owner assignment, and template preview states first. These reduce support load and give reviewers confidence before they start commenting."
+    }
+  },
+  {
+    "id": "review",
+    "title": "Review workspace",
+    "blurb": "The main collaborative review surface: tables, cards, tabs, comments, assignments, filters, and resolution states.",
+    "rows": [
+      [
+        "right-click comment",
+        "browser",
+        "browser",
+        "",
+        "browser",
+        "",
+        ""
+      ],
+      [
+        "comment export / sidecar",
+        "browser, worker",
+        "browser",
+        "api",
+        "",
+        "",
+        "export"
+      ],
+      [
+        "resolve comment",
+        "browser, api",
+        "browser, api",
+        "api",
+        "browser",
+        "",
+        ""
+      ],
+      [
+        "filter open issues",
+        "browser",
+        "browser",
+        "api",
+        "browser",
+        "",
+        ""
+      ],
+      [
+        "bulk assign owner",
+        "",
+        "browser",
+        "api",
+        "",
+        "",
+        ""
+      ],
+      [
+        "compare before / after",
+        "browser",
+        "browser",
+        "",
+        "",
+        "",
+        ""
+      ],
+      [
+        "keyboard navigation",
+        "browser",
+        "",
+        "",
+        "browser",
+        "",
+        ""
+      ]
+    ],
+    "reco": {
+      "tier": "now",
+      "lead": "Commenting works; the next lift is reviewer throughput.",
+      "body": "Prioritize bulk assignment, keyboard movement through rows, and a before/after compare strip. Those are the pieces that turn a demo review into repeated operational use."
+    }
+  },
+  {
+    "id": "workflow",
+    "title": "Workflow automation",
+    "blurb": "Rules that move items through queues, notify owners, and keep long-running work from stalling.",
+    "rows": [
+      [
+        "status transitions",
+        "browser, api",
+        "browser, api",
+        "api",
+        "browser",
+        "",
+        ""
+      ],
+      [
+        "assignment rules",
+        "",
+        "browser",
+        "api, worker",
+        "",
+        "",
+        ""
+      ],
+      [
+        "due-date reminders",
+        "",
+        "browser",
+        "api, worker",
+        "",
+        "email",
+        ""
+      ],
+      [
+        "blocked-state escalation",
+        "browser",
+        "browser",
+        "api, worker",
+        "",
+        "email",
+        ""
+      ],
+      [
+        "recurring review cadence",
+        "",
+        "browser",
+        "api, worker",
+        "",
+        "email",
+        ""
+      ],
+      [
+        "audit trail",
+        "browser",
+        "browser",
+        "api",
+        "",
+        "",
+        "export"
+      ]
+    ],
+    "reco": {
+      "tier": "next",
+      "lead": "Rules should follow the review loop, not precede it.",
+      "body": "Add a small rule engine after the comment lifecycle is stable: reminder jobs, blocked-state escalation, and audit exports are enough for v1 workflow automation."
+    }
+  },
+  {
+    "id": "publishing",
+    "title": "Publishing & handoff",
+    "blurb": "Turning reviewed work into a shareable artifact, release note, archive, or implementation queue.",
+    "rows": [
+      [
+        "publish reviewed artifact",
+        "browser, worker",
+        "browser, worker",
+        "api, worker",
+        "",
+        "email",
+        "export"
+      ],
+      [
+        "generate release notes",
+        "browser, worker",
+        "browser",
+        "api, worker",
+        "",
+        "",
+        "export"
+      ],
+      [
+        "implementation handoff",
+        "browser",
+        "browser",
+        "api",
+        "",
+        "email",
+        "export"
+      ],
+      [
+        "approval gate",
+        "browser",
+        "browser",
+        "api",
+        "browser",
+        "email",
+        ""
+      ],
+      [
+        "rollback snapshot",
+        "",
+        "browser, worker",
+        "api, worker",
+        "",
+        "",
+        "export"
+      ],
+      [
+        "public share link",
+        "",
+        "browser",
+        "api",
+        "browser",
+        "",
+        ""
+      ]
+    ],
+    "reco": {
+      "tier": "now",
+      "lead": "Handoff quality is the credibility point.",
+      "body": "Make generated handoff files deterministic and easy for an agent to consume. A compact Markdown summary plus structured JSON should be the default handoff pair."
+    }
+  },
+  {
+    "id": "observability",
+    "title": "Observability",
+    "blurb": "Health, metrics, logs, and evidence that the system did what reviewers expected.",
+    "rows": [
+      [
+        "review activity metrics",
+        "browser",
+        "browser",
+        "api, worker",
+        "",
+        "",
+        "export"
+      ],
+      [
+        "job health dashboard",
+        "",
+        "browser",
+        "api, worker",
+        "",
+        "email",
+        ""
+      ],
+      [
+        "error detail drawer",
+        "browser",
+        "browser",
+        "api",
+        "browser",
+        "",
+        ""
+      ],
+      [
+        "event timeline",
+        "browser",
+        "browser",
+        "api",
+        "",
+        "",
+        "export"
+      ],
+      [
+        "notification delivery logs",
+        "",
+        "browser",
+        "api, worker",
+        "",
+        "email",
+        ""
+      ],
+      [
+        "privacy audit export",
+        "",
+        "browser",
+        "api, worker",
+        "",
+        "",
+        "export"
+      ]
+    ],
+    "reco": {
+      "tier": "next",
+      "lead": "Measure the review loop before adding advanced analytics.",
+      "body": "Start with review activity, job health, and event timelines. These make failures debuggable and give operators enough signal to trust automation."
+    }
+  },
+  {
+    "id": "access",
+    "title": "Access & governance",
+    "blurb": "Roles, permissions, privacy boundaries, retention, and administrative guardrails.",
+    "rows": [
+      [
+        "role-based access",
+        "browser",
+        "browser",
+        "api",
+        "",
+        "",
+        ""
+      ],
+      [
+        "workspace-level permissions",
+        "browser",
+        "browser",
+        "api",
+        "",
+        "",
+        ""
+      ],
+      [
+        "comment visibility rules",
+        "browser",
+        "browser",
+        "api",
+        "browser",
+        "",
+        ""
+      ],
+      [
+        "retention policy",
+        "",
+        "browser",
+        "api, worker",
+        "",
+        "",
+        "export"
+      ],
+      [
+        "data deletion request",
+        "browser",
+        "browser",
+        "api, worker",
+        "",
+        "email",
+        "export"
+      ],
+      [
+        "security event review",
+        "",
+        "browser",
+        "api",
+        "",
+        "email",
+        "export"
+      ]
+    ],
+    "reco": {
+      "tier": "now",
+      "lead": "Small teams still need explicit boundaries.",
+      "body": "Ship simple roles, workspace permissions, and retention settings before broader enterprise controls. They make the product easier to trust in public examples and real deployments."
+    }
+  },
+  {
+    "id": "notifications",
+    "title": "Notifications",
+    "blurb": "How reviewers, owners, and agents learn that something changed or needs attention.",
+    "rows": [
+      [
+        "comment mention",
+        "browser",
+        "browser",
+        "api, worker",
+        "browser",
+        "email",
+        ""
+      ],
+      [
+        "daily digest",
+        "",
+        "browser",
+        "api, worker",
+        "",
+        "email",
+        ""
+      ],
+      [
+        "approval request",
+        "browser",
+        "browser",
+        "api, worker",
+        "browser",
+        "email",
+        ""
+      ],
+      [
+        "failed job alert",
+        "",
+        "browser",
+        "api, worker",
+        "",
+        "email",
+        ""
+      ],
+      [
+        "unsubscribe / preferences",
+        "browser",
+        "browser",
+        "api",
+        "browser",
+        "email",
+        ""
+      ],
+      [
+        "reply-to-comment routing",
+        "",
+        "",
+        "api, worker",
+        "",
+        "email",
+        ""
+      ]
+    ],
+    "reco": {
+      "tier": "next",
+      "lead": "Notifications should be sparse and actionable.",
+      "body": "Add digest preferences and reply routing after core mentions work. The goal is to pull reviewers back into context without flooding them."
+    }
+  },
+  {
+    "id": "exports",
+    "title": "Exports & archive",
+    "blurb": "Durable files that agents, auditors, and teammates can read outside the application.",
+    "rows": [
+      [
+        "comments markdown",
+        "browser",
+        "browser",
+        "api",
+        "",
+        "",
+        "export"
+      ],
+      [
+        "comments JSON",
+        "browser",
+        "browser",
+        "api",
+        "",
+        "",
+        "export"
+      ],
+      [
+        "CSV table export",
+        "browser",
+        "browser",
+        "api, worker",
+        "",
+        "",
+        "export"
+      ],
+      [
+        "PDF snapshot",
+        "",
+        "browser",
+        "api, worker",
+        "",
+        "",
+        "export"
+      ],
+      [
+        "scheduled archive",
+        "",
+        "browser",
+        "api, worker",
+        "",
+        "email",
+        "export"
+      ],
+      [
+        "signed download link",
+        "",
+        "browser",
+        "api",
+        "",
+        "email",
+        "export"
+      ]
+    ],
+    "reco": {
+      "tier": "now",
+      "lead": "Sidecar exports are the integration layer.",
+      "body": "Keep Markdown and JSON sidecars as the canonical agent handoff. Add CSV and signed download links only after the core comments format stays stable."
+    }
+  }
+];
+const GAPS = [
+  {
+    "n": "Bulk owner assignment",
+    "why": "Reviewers can comment, but operations slow down when each row needs individual ownership. Bulk assignment turns comments into a real queue.",
+    "plat": "Portal · Admin",
+    "surface": "Review workspace",
+    "eff": "med",
+    "score": 9,
+    "tier": "now"
+  },
+  {
+    "n": "Deterministic agent handoff",
+    "why": "The handoff should always produce stable Markdown plus JSON, so agents can read comments, make changes, and resolve them without asking for context.",
+    "plat": "Portal · API · Export",
+    "surface": "Publishing",
+    "eff": "med",
+    "score": 9,
+    "tier": "now"
+  },
+  {
+    "n": "Import validation report",
+    "why": "Bad source files should produce actionable row-level errors before a reviewer enters the workspace.",
+    "plat": "Portal · Admin · API",
+    "surface": "Intake",
+    "eff": "low",
+    "score": 8,
+    "tier": "now"
+  },
+  {
+    "n": "Keyboard review navigation",
+    "why": "Power reviewers need to move through rows, open comments, and resolve items without repeated pointer work.",
+    "plat": "Portal · Mobile",
+    "surface": "Review workspace",
+    "eff": "med",
+    "score": 8,
+    "tier": "now"
+  },
+  {
+    "n": "Role and retention settings",
+    "why": "Public review artifacts often contain sensitive drafts. Simple roles and retention policies make the local-first flow safe enough for teams.",
+    "plat": "Admin · API",
+    "surface": "Access",
+    "eff": "med",
+    "score": 8,
+    "tier": "now"
+  },
+  {
+    "n": "Job health dashboard",
+    "why": "Background imports and exports need visible status, retries, and failure reasons.",
+    "plat": "Admin · API",
+    "surface": "Observability",
+    "eff": "med",
+    "score": 8,
+    "tier": "next"
+  },
+  {
+    "n": "Approval request notifications",
+    "why": "Reviewers need one clear prompt when a handoff is ready, not scattered messages across tools.",
+    "plat": "Portal · Email",
+    "surface": "Notifications",
+    "eff": "low",
+    "score": 7,
+    "tier": "now"
+  },
+  {
+    "n": "Before / after compare strip",
+    "why": "Reviewers should see what changed after an agent acts on comments, especially before marking a thread resolved.",
+    "plat": "Portal",
+    "surface": "Review workspace",
+    "eff": "high",
+    "score": 7,
+    "tier": "next"
+  },
+  {
+    "n": "Scheduled archive exports",
+    "why": "Teams need a durable record of review decisions and resolved comments at regular milestones.",
+    "plat": "Admin · Export",
+    "surface": "Exports",
+    "eff": "med",
+    "score": 7,
+    "tier": "next"
+  },
+  {
+    "n": "Reply-to-comment routing",
+    "why": "Email replies should land on the right comment thread instead of becoming detached support messages.",
+    "plat": "Email · API",
+    "surface": "Notifications",
+    "eff": "high",
+    "score": 6,
+    "tier": "next"
+  },
+  {
+    "n": "Mobile matrix controls",
+    "why": "Dense matrices are hard on small screens. A compact surface switcher would make mobile review credible.",
+    "plat": "Mobile",
+    "surface": "Review workspace",
+    "eff": "high",
+    "score": 6,
+    "tier": "next"
+  },
+  {
+    "n": "PDF snapshot export",
+    "why": "PDF is useful for offline stakeholders, but it should not block the core Markdown/JSON agent workflow.",
+    "plat": "Export",
+    "surface": "Exports",
+    "eff": "med",
+    "score": 4,
+    "tier": "skip"
+  },
+  {
+    "n": "Public share links",
+    "why": "Sharing outside a workspace has privacy implications and should wait until roles, retention, and audit trails are settled.",
+    "plat": "Portal · API",
+    "surface": "Publishing",
+    "eff": "high",
+    "score": 4,
+    "tier": "skip"
+  },
+  {
+    "n": "Custom visual themes",
+    "why": "Brand theming is nice, but the template should stay stable while review mechanics mature.",
+    "plat": "Portal",
+    "surface": "Intake",
+    "eff": "med",
+    "score": 3,
+    "tier": "skip"
+  }
+];
+const PLAN = [
+  {
+    "num": 1,
+    "tier": "Batch 1 · no deps (parallel)",
+    "status": "active",
+    "brief": "instrumentation-brief",
+    "scope": "Import validation report",
+    "sub": "Row-level errors, file summary, and retry guidance before review starts.",
+    "deps": "none",
+    "hard": false,
+    "eff": "low",
+    "impact": 8,
+    "value": 8,
+    "rat": "<b>Why —</b> reviewers need clean source context before they can make useful comments. <b>Audit:</b> not-started."
+  },
+  {
+    "num": 2,
+    "tier": "Batch 1 · no deps (parallel)",
+    "status": "active",
+    "brief": "support-readiness-brief",
+    "scope": "Bulk owner assignment",
+    "sub": "Assign owners from selected rows or filtered subsets.",
+    "deps": "none",
+    "hard": false,
+    "eff": "med",
+    "impact": 9,
+    "value": 9,
+    "rat": "<b>Why —</b> turns review findings into accountable work without row-by-row friction. <b>Audit:</b> not-started."
+  },
+  {
+    "num": 3,
+    "tier": "Batch 1 · no deps (parallel)",
+    "status": "active",
+    "brief": "launch-communications-brief",
+    "scope": "Approval request notifications",
+    "sub": "One email when an artifact is ready for review or approval.",
+    "deps": "none",
+    "hard": false,
+    "eff": "low",
+    "impact": 7,
+    "value": 7,
+    "rat": "<b>Order —</b> cheap and visible. <b>Why —</b> closes the loop from generated artifact to human review."
+  },
+  {
+    "num": 4,
+    "tier": "Core readiness · do next",
+    "status": "active",
+    "brief": "observability-brief",
+    "scope": "Job health dashboard",
+    "sub": "Surface import/export state, retries, and failure details.",
+    "deps": "PR1",
+    "hard": true,
+    "eff": "med",
+    "impact": 8,
+    "value": 8,
+    "rat": "<b>Order —</b> depends on structured validation events. <b>Why —</b> makes background work trustworthy."
+  },
+  {
+    "num": 5,
+    "tier": "Core readiness · do next",
+    "status": "active",
+    "brief": "rollback-brief",
+    "scope": "Deterministic agent handoff",
+    "sub": "Stable Markdown + JSON sidecars with comment IDs and resolution states.",
+    "deps": "none",
+    "hard": false,
+    "eff": "med",
+    "impact": 9,
+    "value": 9,
+    "rat": "<b>Why —</b> this is the product promise: comments become agent-readable work."
+  },
+  {
+    "num": 6,
+    "tier": "Core readiness · do next",
+    "status": "active",
+    "brief": "support-readiness-brief",
+    "scope": "Role and retention settings",
+    "sub": "Simple reviewer/admin roles plus local retention defaults.",
+    "deps": "none",
+    "hard": false,
+    "eff": "med",
+    "impact": 8,
+    "value": 8,
+    "rat": "<b>Why —</b> review artifacts can be sensitive even when the tool is local-first."
+  },
+  {
+    "num": 7,
+    "tier": "Batch 2 · depends on instrumentation",
+    "status": "active",
+    "brief": "instrumentation-brief",
+    "scope": "Keyboard review navigation",
+    "sub": "Move row-to-row, open comment, resolve, and continue.",
+    "deps": "PR1, PR5",
+    "hard": true,
+    "eff": "med",
+    "impact": 8,
+    "value": 8,
+    "rat": "<b>Order —</b> needs stable anchors and comment state. <b>Why —</b> makes heavy review sessions fast."
+  },
+  {
+    "num": 8,
+    "tier": "Batch 2 · depends on instrumentation",
+    "status": "active",
+    "brief": "observability-brief",
+    "scope": "Before / after compare strip",
+    "sub": "Show what changed after an agent acts on comments.",
+    "deps": "PR5",
+    "hard": true,
+    "eff": "high",
+    "impact": 7,
+    "value": 7,
+    "rat": "<b>Why —</b> reviewers need evidence before resolving feedback."
+  },
+  {
+    "num": 9,
+    "tier": "Batch 3 · release controls",
+    "status": "active",
+    "brief": "rollback-brief",
+    "scope": "Scheduled archive exports",
+    "sub": "Milestone snapshots of comments, decisions, and resolved state.",
+    "deps": "PR5, PR6",
+    "hard": true,
+    "eff": "med",
+    "impact": 7,
+    "value": 7,
+    "rat": "<b>Why —</b> creates a durable audit trail without needing a database."
+  },
+  {
+    "num": 10,
+    "tier": "Batch 3 · release controls",
+    "status": "active",
+    "brief": "launch-communications-brief",
+    "scope": "Reply-to-comment routing",
+    "sub": "Map email replies back to the original comment thread.",
+    "deps": "PR3, PR5",
+    "hard": true,
+    "eff": "high",
+    "impact": 6,
+    "value": 6,
+    "rat": "<b>Why —</b> useful after notifications are trusted; too much before then."
+  },
+  {
+    "num": 11,
+    "tier": "Batch 4 · cadence",
+    "status": "active",
+    "brief": "observability-brief",
+    "scope": "Recurring review cadence",
+    "sub": "Scheduled review reminders and stale-thread nudges.",
+    "deps": "PR3, PR4",
+    "hard": true,
+    "eff": "low-med",
+    "impact": 6,
+    "value": 6,
+    "rat": "<b>Order —</b> cadence should use the same health and notification substrate."
+  },
+  {
+    "num": 12,
+    "tier": "Later",
+    "status": "later",
+    "brief": "",
+    "scope": "Mobile matrix controls",
+    "sub": "Compact surface switcher and row detail mode.",
+    "deps": "",
+    "hard": false,
+    "eff": "high",
+    "impact": 6,
+    "value": 6,
+    "rat": "Useful, but not required for desktop-first review loops."
+  },
+  {
+    "num": 13,
+    "tier": "Later",
+    "status": "later",
+    "brief": "",
+    "scope": "PDF snapshot export",
+    "sub": "Printable summary for offline stakeholders.",
+    "deps": "",
+    "hard": false,
+    "eff": "med",
+    "impact": 4,
+    "value": 4,
+    "rat": "Markdown/JSON sidecars matter more for the agent workflow."
+  },
+  {
+    "num": 14,
+    "tier": "Scoped out",
+    "status": "scoped",
+    "brief": "",
+    "scope": "Custom visual themes",
+    "sub": "Per-workspace brand tokens.",
+    "deps": "",
+    "hard": false,
+    "eff": "n/a",
+    "impact": 0,
+    "value": 3,
+    "rat": "Keep the public example visually stable while the review mechanics mature."
+  }
+];
+
+/* ----------------------------- helpers ----------------------------- */
+function esc(s) { return (s || '').replace(/"/g, '&quot;'); }
+const T_MAP = [['browser', 'B', 'browser · interactive UI'], ['api', 'A', 'API · contract'], ['worker', 'W', 'worker · async job'], ['server', 'S', 'server · managed service'], ['export', 'E', 'export · file artifact']];
+function calib(score) { let s = ''; for (let i = 0; i < 10; i++) s += '<span class="cseg' + (i < score ? ' on' : '') + '"></span>'; return '<span class="calib">' + s + '</span>'; }
+function tierTok(t) { const m = { now: ['now', '[ build now ]'], next: ['next', '[ build next ]'], skip: ['skip', '[ skip ]'] }; const pair = m[t] || m.next; return '<span class="ttok t-' + pair[0] + '">' + pair[1] + '</span>'; }
+function tierFull(t) { return { now: 'Build now', next: 'Build next', skip: 'Skip / defer' }[t]; }
+function gapPriority(g) { return g.plat.split('·').map(x => x.trim().toLowerCase()).some(x => x === 'portal' || x === 'admin' || x === 'api' || x === 'all'); }
+function shortWhy(w) { const t = String(w || '').trim(); const d = t.indexOf('. '); if (d > 0 && d < 165) return t.slice(0, d + 1); return t.length > 155 ? t.slice(0, 153).trim() + '…' : t; }
+
+/* ----------------------------- matrix ----------------------------- */
+function cellTd(s, p) {
+  const has = !!(s && s.trim());
+  const secCls = p.primary ? 'pri' : 'sec';
+  const divide = p.key === 'mobile' ? ' divide' : '';
+  if (!has) return '<td class="cellbox gap ' + secCls + divide + '"><span class="gap-mark">—</span></td>';
+  const letters = []; let note = '';
+  s.split(',').forEach(part => {
+    const t = part.trim(), low = t.toLowerCase();
+    const m = T_MAP.find(x => low.startsWith(x[0]));
+    if (m) letters.push('<span class="tl" title="' + m[2] + '">' + m[1] + '</span>');
+    if (/\(/.test(t)) note = '*';
+  });
+  return '<td class="cellbox ' + secCls + divide + '" title="' + esc(s) + '"><span class="cellhas">' + letters.join('') + (note ? '<span class="star" title="' + esc(s) + '">*</span>' : '') + '</span></td>';
+}
+function platHead() {
+  return PLATFORMS.map(p => '<th class="col-plat ' + (p.primary ? '' : 'sec') + (p.key === 'mobile' ? ' divide' : '') + '"><span class="col-h"><span class="ab">' + p.abbr + '</span><span class="ti ' + (p.primary ? 'pri' : 'sec') + '">' + (p.primary ? 'priority' : 'secondary') + '</span></span></th>').join('');
+}
+
+/* ----------------------------- render: overview ----------------------------- */
+document.getElementById('scorecards').innerHTML = SCORECARDS.map(c => '<div class="scard" data-review-id="platform:' + esc(c.name) + '" data-review-group="Platform completeness" data-review-label="' + esc(c.name) + '"><span class="nm">' + c.name + '</span><span>' + calib(c.score) + '</span><span class="sv">' + c.score + '/10</span><span class="nt">' + c.note + '</span></div>').join('');
+
+document.getElementById('paths').innerHTML = PATHS.map(p => '<div class="pcard" data-review-id="path:' + esc(p.name) + '" data-review-group="Execution paths" data-review-label="' + esc(p.name) + '"><h3>' + p.name + ' <span class="ptag">' + p.tag + '</span></h3><p>' + p.body + '</p></div>').join('');
+
+const heroGaps = GAPS.filter(g => (g.tier === 'now' || g.tier === 'next') && gapPriority(g)).sort((a, b) => b.score - a.score || (a.tier === 'now' ? -1 : 1)).slice(0, 8);
+document.getElementById('heroRows').innerHTML = heroGaps.map(g => '<div class="row" data-review-id="gap:' + esc(g.n) + '" data-review-group="Gap ledger" data-review-label="' + esc(g.n) + '"><span>' + tierTok(g.tier) + '</span><span class="r-desc"><b>' + g.n + '</b> <span class="rw">· ' + shortWhy(g.why) + ' <span style="white-space:nowrap">[' + g.plat + ']</span></span></span><span class="r-score num ' + (g.score >= 8 ? 'hi' : '') + '">' + g.score + '</span></div>').join('');
+const nowCount = heroGaps.filter(g => g.tier === 'now').length;
+document.getElementById('heroBarRight').textContent = heroGaps.length + ' shown';
+document.getElementById('heroFootL').textContent = heroGaps.length + ' priority gaps · ' + nowCount + ' build now · ' + (heroGaps.length - nowCount) + ' build next';
+
+/* ----------------------------- render: surfaces ----------------------------- */
+document.getElementById('surfaces').innerHTML = SURFACES.map((s, i) => '<section class="page" data-page="' + s.id + '"><div class="page-head" data-review-id="view:' + s.id + '" data-review-group="Surface · ' + esc(s.title) + '" data-review-label="General note · ' + esc(s.title) + '"><div class="fig">Fig 0.' + (i + 1) + ' / Surface</div><h2>' + s.title + '</h2><p>' + s.blurb + '</p></div><div class="legend"><span class="lg"><span class="sw"><span class="tl">B</span></span>browser</span><span class="lg"><span class="sw"><span class="tl">A</span></span>API</span><span class="lg"><span class="sw"><span class="tl">W</span></span>worker</span><span class="lg"><span class="sw"><span class="tl">S</span></span>server</span><span class="lg"><span class="sw"><span class="tl">E</span></span>export</span><span class="sep"></span><span class="lg"><span class="gap-mark" style="color:var(--amber)">—</span> gap on priority surface</span><span class="lg"><span class="gap-mark">—</span> gap (secondary)</span><span class="sep"></span><span>browser→review · API→contract · worker→async · * = caveat (hover)</span></div><div class="table-scroll"><table class="matrix"><thead><tr><th class="act">Capability</th>' + platHead() + '</tr></thead><tbody>' + s.rows.map(r => '<tr data-review-id="matrix:' + s.id + ':' + esc(r[0]) + '" data-review-group="Surface · ' + esc(s.title) + '" data-review-label="Row · ' + esc(r[0]) + '"><td class="act">' + r[0] + '</td>' + PLATFORMS.map(p => cellTd(r[p.col], p)).join('') + '</tr>').join('') + '</tbody></table></div><div class="reco" data-review-id="reco:' + s.id + '" data-review-group="Surface · ' + esc(s.title) + '" data-review-label="Recommendation · ' + esc(s.title) + '"><h4>▸ recommendation ' + tierTok(s.reco.tier) + '</h4><p><strong>' + s.reco.lead + '</strong></p><p>' + s.reco.body + '</p></div></section>').join('');
+
+/* ----------------------------- render: build plan ----------------------------- */
+const PLAN_LANES = ['Batch 1 · no deps (parallel)', 'Core readiness · do next', 'Batch 2 · depends on instrumentation', 'Batch 3 · release controls', 'Batch 4 · cadence', 'Later', 'Scoped out'];
+const PLAN_DISPATCH = ['Batch 1 · no deps (parallel)', 'Core readiness · do next', 'Batch 2 · depends on instrumentation', 'Batch 3 · release controls', 'Batch 4 · cadence'];
+document.getElementById('planLanes').innerHTML = PLAN_DISPATCH.map((lane, i) => '<div class="lane"><h5>' + lane + '</h5>' + PLAN.filter(p => p.tier === lane).map(p => '<div class="pr"><span class="n">' + p.num + '</span><span>' + p.scope + '</span></div>').join('') + (i < PLAN_DISPATCH.length - 1 ? '<div class="arrow">↓ then</div>' : '') + '</div>').join('');
+function planRow(p) {
+  const briefCell = p.status === 'active' && p.brief ? '<a class="brief-link" href="runbook/briefs/' + p.brief + '.md" target="_blank" rel="noopener">brief ↗</a>' : p.status === 'done' ? '<span class="score-pill s-hi" style="width:34px;height:34px;font-size:16px;border-radius:8px">✓</span>' : '<span class="muted-dash">—</span>';
+  const impactCell = p.status === 'scoped' ? '<span class="muted-dash">—</span>' : '<span class="score-pill ' + (p.impact >= 8 ? 's-hi' : p.impact >= 5 ? 's-mid' : 's-lo') + '" style="width:34px;height:34px;font-size:15px;border-radius:8px">' + p.impact + '</span>';
+  const rowCls = p.status === 'active' ? '' : p.status === 'done' ? 'planrow-done' : 'planrow-dim';
+  return '<tr class="' + rowCls + '" data-review-id="plan:' + esc(p.scope) + '" data-review-group="Build plan" data-review-label="PR' + p.num + ' · ' + esc(p.scope) + '"><td class="pr-numcell">PR ' + p.num + '</td><td><span class="pr-scope">' + p.scope + '</span>' + (p.sub ? '<span class="pr-sub">' + p.sub + '</span>' : '') + '</td><td class="' + (p.hard ? 'dep-hard' : 'dep-none') + '" style="font-family:var(--mono);font-size:11.5px;white-space:nowrap">' + (p.deps || '—') + (p.hard && !/\(hard\)/.test(p.deps) ? ' (hard)' : '') + '</td><td class="ge">' + p.eff + '</td><td class="score-cell">' + impactCell + '</td><td class="c-score">' + calib(p.value) + '<span class="snum ' + (p.value >= 8 ? 'hi' : '') + '">' + p.value + '</span></td><td>' + briefCell + '</td><td class="rat">' + p.rat + '</td></tr>';
+}
+{
+  let html = '';
+  for (const lane of PLAN_LANES) {
+    const rs = PLAN.filter(p => p.tier === lane);
+    if (!rs.length) continue;
+    html += '<tr class="tier-row"><td colspan="8">' + lane + '<span class="tc">' + rs.length + ' PR' + (rs.length === 1 ? '' : 's') + '</span></td></tr>';
+    html += rs.map(planRow).join('');
+  }
+  document.getElementById('planBody').innerHTML = html;
+}
+
+/* ----------------------------- render: gap ledger ----------------------------- */
+const TIER_ORDER = ['now', 'next', 'skip'];
+let curTier = 'all', curScope = 'pri';
+function gapRow(g) {
+  return '<tr data-review-id="gap:' + esc(g.n) + '" data-review-group="Gap ledger" data-review-label="' + esc(g.n) + '"><td><span class="gn">' + g.n + '</span><span class="gw">' + g.why + '</span></td><td class="gp">' + g.plat + '</td><td class="gs">' + g.surface + '</td><td class="ge">' + (g.eff === 'low' ? 'low' : g.eff === 'med' ? 'medium' : 'high') + '</td><td class="c-score">' + calib(g.score) + '<span class="snum ' + (g.score >= 8 ? 'hi' : '') + '">' + g.score + '</span></td><td>' + tierTok(g.tier) + '</td></tr>';
+}
+function renderGaps() {
+  const rows = GAPS.filter(g => (curTier === 'all' || g.tier === curTier) && (curScope === 'all' || gapPriority(g)));
+  const groups = curTier === 'all' ? TIER_ORDER : [curTier];
+  let html = '';
+  for (const tg of groups) {
+    const gs = rows.filter(g => g.tier === tg).sort((a, b) => b.score - a.score);
+    if (!gs.length) continue;
+    if (curTier === 'all') html += '<tr class="tier-row"><td colspan="6">' + tierTok(tg).replace(/\[ | \]/g, '') + '<span class="tc">' + gs.length + ' ' + (gs.length === 1 ? 'gap' : 'gaps') + '</span></td></tr>';
+    html += gs.map(gapRow).join('');
+  }
+  document.getElementById('gapBody').innerHTML = html || '<tr><td colspan="6" style="padding:22px;color:var(--muted)">No gaps match this filter.</td></tr>';
+}
+renderGaps();
+document.querySelectorAll('.filt[data-filt]').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.filt[data-filt]').forEach(x => x.classList.remove('active'));
+  b.classList.add('active'); curTier = b.dataset.filt; renderGaps();
+}));
+document.querySelectorAll('.filt[data-scope]').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.filt[data-scope]').forEach(x => x.classList.remove('active'));
+  b.classList.add('active'); curScope = b.dataset.scope; renderGaps();
+}));
+
+/* ----------------------------- tabs ----------------------------- */
+const TABS = [{ id: 'plan', label: 'Build plan' }, { id: 'overview', label: 'Overview' }].concat(SURFACES.map(s => ({ id: s.id, label: s.title }))).concat([{ id: 'gaps', label: 'Gap ledger' }]);
+document.getElementById('tabs').innerHTML = TABS.map((t, i) => '<button class="tab' + (i === 0 ? ' active' : '') + '" data-tab="' + t.id + '">' + t.label + '</button>').join('');
+document.querySelectorAll('.tab').forEach(btn => btn.addEventListener('click', () => {
+  document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelector('.page[data-page="' + btn.dataset.tab + '"]').classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}));
+</script>
+</body>
+</html>

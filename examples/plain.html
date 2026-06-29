@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plain unannotated report</title>
+<style>
+  body {
+    margin: 0;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    color: #111;
+    background: #fafaf8;
+  }
+  main {
+    max-width: 900px;
+    margin: 48px auto 120px;
+    padding: 0 24px;
+  }
+  section {
+    border-top: 1px solid #ddd;
+    padding: 24px 0;
+  }
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+  .card {
+    border: 1px solid #ddd;
+    padding: 16px;
+    background: #fff;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 16px;
+  }
+  th,
+  td {
+    border: 1px solid #ddd;
+    padding: 10px;
+    text-align: left;
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Plain unannotated report</h1>
+  <p>This file intentionally has no data-review attributes. Fidibaku should still make headings, paragraphs, cards, list items, and table rows commentable.</p>
+
+  <section>
+    <h2>Summary</h2>
+    <p>The review layer should generate stable fallback anchors at runtime and persist comments to sidecar files next to this HTML file.</p>
+    <div class="card-grid">
+      <div class="card">
+        <h3>Auto card one</h3>
+        <p>This card is a plain div with a class name. It should be right-click commentable.</p>
+      </div>
+      <div class="card">
+        <h3>Auto card two</h3>
+        <p>This second card checks that repeated card-like structures get distinct generated anchors.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Rows</h2>
+    <table>
+      <thead>
+        <tr><th>Item</th><th>Status</th><th>Detail</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Alpha</td><td>Ready</td><td>Plain table row without explicit anchor.</td></tr>
+        <tr><td>Beta</td><td>Needs review</td><td>Second row for generated row IDs.</td></tr>
+      </tbody>
+    </table>
+  </section>
+</main>
+</body>
+</html>

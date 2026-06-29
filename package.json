@@ -1,0 +1,48 @@
+{
+  "name": "fidibaku",
+  "version": "0.1.0",
+  "description": "Drop-in, right-click commenting for local HTML reports and localhost apps with sidecar autosave.",
+  "homepage": "https://github.com/mathieu-ships/fidibaku#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mathieu-ships/fidibaku.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mathieu-ships/fidibaku/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "bin": {
+    "fidibaku": "cli/index.js"
+  },
+  "files": [
+    "LICENSE",
+    "README.md",
+    "cli/",
+    "client/",
+    "server/",
+    "vite/",
+    "schema/",
+    "docs/architecture.md",
+    "docs/releasing.md",
+    "docs/runbook-example.md",
+    "examples/report.html",
+    "examples/plain.html",
+    "examples/runbook.html",
+    "examples/runbook/"
+  ],
+  "scripts": {
+    "check": "node --check cli/index.js && node --check server/serve.js && node --check server/writer.js && node --check server/security.js && node --check client/review.js && node --check vite/index.js",
+    "smoke": "repo=$PWD; tmp=$(mktemp -d) && cp examples/report.html \"$tmp/report.html\" && node cli/index.js bundle \"$tmp/report.html\" -o \"$tmp/bundled.html\" && node -e \"require('./server/writer').writeSidecars(process.argv[1], {'example:intro': {group: 'Overview', label: 'Intro', text: 'Smoke test comment'}})\" \"$tmp/report.html\" && node cli/index.js resolve \"$tmp/report.html\" --id example:intro --reply \"Implemented in smoke test\" && node cli/index.js export \"$tmp/report.html\" && (cd \"$tmp\" && node \"$repo/cli/index.js\" runbook --copy-only --no-open -o plan-review.html && test -f plan-review.html && test -f plan-review/briefs/instrumentation-brief.md && grep -q 'href=\"plan-review/briefs/' plan-review.html && grep -q '../plan-review.html' plan-review/README.md); code=$?; rm -rf \"$tmp\"; exit $code"
+  },
+  "keywords": [
+    "html",
+    "comments",
+    "review",
+    "static-site",
+    "agent"
+  ],
+  "license": "MIT"
+}

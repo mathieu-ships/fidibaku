@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fidibaku.local/comments.schema.json",
+  "title": "Fidibaku comments sidecar",
+  "type": "object",
+  "required": ["version", "target", "updatedAt", "comments"],
+  "properties": {
+    "version": { "const": 1 },
+    "target": { "type": "string", "minLength": 1 },
+    "updatedAt": { "type": "string", "format": "date-time" },
+    "comments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "group", "label", "text", "status", "createdAt", "updatedAt"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "group": { "type": "string" },
+          "label": { "type": "string" },
+          "text": { "type": "string", "minLength": 1 },
+          "status": { "enum": ["open", "resolved", "wontfix"] },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" },
+          "reply": {
+            "anyOf": [
+              { "type": "null" },
+              {
+                "type": "object",
+                "required": ["text", "at"],
+                "properties": {
+                  "text": { "type": "string" },
+                  "at": { "type": "string", "format": "date-time" }
+                },
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

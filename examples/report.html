@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fidibaku example report</title>
+<style>
+  :root {
+    --ground: #fafaf8;
+    --ink: #0b0b0c;
+    --muted: #666b72;
+    --hair: #e2e2dd;
+    --hair-strong: #ccccC5;
+    --green: #2f8f4e;
+    --amber: #b7791f;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 14px;
+    line-height: 1.65;
+  }
+  main {
+    width: min(880px, calc(100vw - 32px));
+    margin: 48px auto 120px;
+  }
+  header {
+    border-bottom: 1px solid var(--hair);
+    padding-bottom: 18px;
+    margin-bottom: 24px;
+  }
+  h1 {
+    margin: 0 0 8px;
+    font-size: 28px;
+    line-height: 1.15;
+    letter-spacing: 0;
+  }
+  p {
+    color: var(--muted);
+    margin: 0;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    border: 1px solid var(--hair);
+  }
+  .card {
+    padding: 16px;
+    border-right: 1px solid var(--hair);
+    min-height: 150px;
+  }
+  .card:last-child {
+    border-right: none;
+  }
+  .card h2 {
+    margin: 0 0 8px;
+    font-size: 15px;
+  }
+  table {
+    width: 100%;
+    margin-top: 24px;
+    border-collapse: collapse;
+    border: 1px solid var(--hair);
+  }
+  th, td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--hair);
+    text-align: left;
+  }
+  th {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+</style>
+</head>
+<body>
+<main>
+  <header data-review-id="example:intro" data-review-group="Overview" data-review-label="Intro">
+    <h1>Review-ready static report</h1>
+    <p>Run <code>fidibaku serve examples/report.html</code>, then right-click the heading, cards, or table rows.</p>
+  </header>
+
+  <section class="grid">
+    <article class="card" data-review-id="example:card:served" data-review-group="Cards" data-review-label="Served mode">
+      <h2>Served mode</h2>
+      <p>Autosaves to sidecar files next to the report in every browser.</p>
+    </article>
+    <article class="card" data-review-id="example:card:standalone" data-review-group="Cards" data-review-label="Standalone mode">
+      <h2>Standalone mode</h2>
+      <p>Bundled files keep localStorage, Copy/Download, and Chromium File System Access fallback.</p>
+    </article>
+    <article class="card" data-review-id="example:card:agent" data-review-group="Cards" data-review-label="Agent round-trip">
+      <h2>Agent round-trip</h2>
+      <p>The agent can mark a comment resolved and attach a reply with the CLI.</p>
+    </article>
+  </section>
+
+  <table>
+    <thead>
+      <tr><th>Item</th><th>Status</th><th>Note</th></tr>
+    </thead>
+    <tbody>
+      <tr data-review-id="example:row:api" data-review-group="Checklist" data-review-label="Review API">
+        <td>Review API</td><td>Ready</td><td>Token-protected localhost comments endpoint.</td>
+      </tr>
+      <tr data-review-id="example:row:sidecars" data-review-group="Checklist" data-review-label="Sidecar files">
+        <td>Sidecars</td><td>Ready</td><td>JSON source of truth plus generated Markdown.</td>
+      </tr>
+    </tbody>
+  </table>
+</main>
+</body>
+</html>

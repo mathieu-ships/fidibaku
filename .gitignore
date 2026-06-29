@@ -1,0 +1,32 @@
+# deps
+node_modules/
+
+# env / secrets
+.env
+.env.*
+!.env.example
+
+# os
+.DS_Store
+
+# editor
+.vscode/
+.idea/
+
+# logs / coverage / temp
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+coverage/
+.tmp/
+
+# review sidecar outputs (generated when reviewing)
+*.comments.json
+*.comments.md
+.fidibaku/
+
+# package artifacts
+fidibaku-*.tgz
+
+# plans (local, never committed)
+docs/plans/
