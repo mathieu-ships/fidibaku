@@ -256,8 +256,9 @@
 
   function ensureScaffold() {
     if ($("cFab")) return;
-    var wrap = document.createElement("div");
-    wrap.innerHTML = [
+    var root = document.createElement("div");
+    root.id = "cReviewRoot";
+    root.innerHTML = [
       '<button class="cfab empty" id="cFab"><span class="fdot" title="autosaving to file"></span>Comments <span class="cn" id="cCount">0</span></button>',
       '<div class="cmodal" id="cModal"><div class="cmwrap">',
       '<span class="ctick tl"></span><span class="ctick tr"></span><span class="ctick bl"></span><span class="ctick br"></span>',
@@ -268,7 +269,10 @@
       '</div></div>',
       '<div class="cpop" id="cPop"><div class="cpop-h"><span class="lbl" id="cpopLabel"></span><button class="del" id="cpopDel">delete</button></div><textarea id="cpopTa" placeholder="Comment for the agent to implement..."></textarea><div class="cpop-f"><span class="muted">auto-saves</span><button class="done" id="cpopDone">done</button></div></div>'
     ].join("");
-    while (wrap.firstChild) document.body.appendChild(wrap.firstChild);
+    // Mount everything under one tracked root so a host framework re-render
+    // (e.g. SSR hydration replacing <body>) can be detected and healed.
+    document.body.appendChild(root);
+    bindScaffoldEvents();
   }
 
   function getC(id) {
@@ -297,6 +301,7 @@
   }
 
   function updateFab() {
+    if (!$("cCount")) return;
     var n = commentCount();
     $("cCount").textContent = n;
     $("cFab").classList.toggle("empty", n === 0);
@@ -350,11 +355,13 @@
   }
 
   function closeModal() {
-    $("cModal").classList.remove("open");
+    var modal = $("cModal");
+    if (modal) modal.classList.remove("open");
   }
 
   var popEl = null;
   function openPop(el, x, y) {
+    if (!$("cPop")) return;
     popEl = el;
     $("cpopLabel").textContent = (itemGroup(el) ? itemGroup(el) + " · " : "") + itemLabel(el);
     $("cpopTa").value = getC(itemId(el));
@@ -369,7 +376,8 @@
   }
 
   function closePop() {
-    $("cPop").classList.remove("open");
+    var pop = $("cPop");
+    if (pop) pop.classList.remove("open");
     popEl = null;
   }
 
@@ -523,7 +531,8 @@
     }).catch(function () {}).then(updateAdapterUI);
   }
 
-  function bindEvents() {
+  function bindScaffoldEvents() {
+    if (!$("cpopTa")) return;
     $("cpopTa").addEventListener("input", function () {
       if (!popEl) return;
       setC(itemId(popEl), itemGroup(popEl), itemLabel(popEl), $("cpopTa").value);
@@ -546,25 +555,10 @@
       markComments();
       closePop();
     });
-    document.addEventListener("contextmenu", function (event) {
-      var el = findReviewTarget(event.target);
-      if (!el) return;
-      event.preventDefault();
-      openPop(el, event.pageX, event.pageY);
-    });
-    document.addEventListener("click", function (event) {
-      if ($("cPop").classList.contains("open") && !$("cPop").contains(event.target)) closePop();
-    });
     $("cFab").addEventListener("click", openModal);
     $("cClose").addEventListener("click", closeModal);
     $("cModal").addEventListener("click", function (event) {
       if (event.target === $("cModal")) closeModal();
-    });
-    document.addEventListener("keydown", function (event) {
-      if (event.key === "Escape") {
-        closePop();
-        closeModal();
-      }
     });
     $("cList").addEventListener("click", function (event) {
       var button = event.target.closest("[data-del]");
@@ -619,8 +613,56 @@
     });
   }
 
+  // Document-level listeners: attached once and never re-bound. They live on
+  // `document`, so they survive a host framework replacing <body>.
+  var globalEventsBound = false;
+  function bindGlobalEvents() {
+    if (globalEventsBound) return;
+    globalEventsBound = true;
+    document.addEventListener("contextmenu", function (event) {
+      var el = findReviewTarget(event.target);
+      if (!el) return;
+      event.preventDefault();
+      // The host may have wiped our UI since last render; rebuild before use.
+      ensureScaffold();
+      openPop(el, event.pageX, event.pageY);
+    });
+    document.addEventListener("click", function (event) {
+      var pop = $("cPop");
+      if (pop && pop.classList.contains("open") && !pop.contains(event.target)) closePop();
+    });
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape") {
+        closePop();
+        closeModal();
+      }
+    });
+  }
+
+  // Self-heal: SPA/SSR frameworks routinely replace <body> on hydration or
+  // client navigation, which removes our scaffold and strips the data-review-*
+  // anchors we add. Watch the document and, debounced, re-mount the UI when our
+  // root goes missing and re-apply anchors/markers. Anchoring also happens
+  // lazily on right-click (findReviewTarget), so commenting works even between
+  // re-renders.
+  function observeScaffold() {
+    if (typeof MutationObserver === "undefined" || !document.body) return;
+    var scheduled = false;
+    var observer = new MutationObserver(function () {
+      if (scheduled) return;
+      scheduled = true;
+      setTimeout(function () {
+        scheduled = false;
+        ensureScaffold();
+        markComments();
+      }, 300);
+    });
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+  }
+
   function init() {
     ensureScaffold();
+    bindGlobalEvents();
     autoInstrument(document);
     comments = readLocal();
     if (window.__REVIEW_SERVER__) {
@@ -636,11 +678,14 @@
         setStatus("err", "Autosave: server unavailable", false, "", false);
       });
     }
-    bindEvents();
     markComments();
     initFileHandle();
+    observeScaffold();
   }
 
+  // Init once the DOM exists. A host that renders its own DOM later (SSR
+  // hydration, SPA mount) is handled by observeScaffold(), which re-mounts the
+  // overlay whenever it gets removed.
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
   else init();
 })();
