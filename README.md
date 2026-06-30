@@ -2,6 +2,12 @@
 
 Drop-in, right-click commenting for websites, landing pages, slides, runbooks, and static HTML reports. Comments autosave to files on disk next to the reviewed artifact so an AI agent can read them, act on them, and mark them resolved.
 
+## Demo
+
+[![fidibaku — right-click comments your coding agent reads, run with npx fidibaku](docs/demo-poster.png)](docs/demo.mp4)
+
+Ask your coding agent to serve a report with `npx fidibaku`, right-click any row to leave a comment, and it autosaves to a sidecar file next to the report — then the agent reads it back and acts on it. The whole review loop, no backend. **[▶ Watch the 15-second demo](docs/demo.mp4)**
+
 ## Why
 
 Static HTML is a great medium for an AI agent to hand work to a human (audits, dashboards, design reviews, generated docs). But the review loop back to the agent is broken: the human reviews in a browser, then retypes feedback into a chat, losing the anchor (which row? which recommendation?). `fidibaku` closes that loop: **right-click an element → comment → it autosaves to `<report>.comments.{json,md}` next to the file → the agent reads it and implements (and can mark items resolved with a reply).**
