@@ -216,6 +216,100 @@
     localStorage.setItem(storageKey(), JSON.stringify(normalizeMap(map)));
   }
 
+  // --- Draggable FAB -------------------------------------------------------
+  // The comments button can be dragged anywhere; its position persists per
+  // target and is re-applied whenever the overlay re-mounts (SSR/HTMX healing).
+  function fabPosKey() {
+    return "fidibaku:fabpos:" + (window.__REVIEW_SERVER__ && window.__REVIEW_SERVER__.target || location.pathname);
+  }
+
+  function readFabPos() {
+    try {
+      var raw = localStorage.getItem(fabPosKey());
+      return raw ? JSON.parse(raw) : null;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function writeFabPos(pos) {
+    try { localStorage.setItem(fabPosKey(), JSON.stringify(pos)); } catch (err) {}
+  }
+
+  function clampFab(fab, left, top) {
+    var w = fab.offsetWidth, h = fab.offsetHeight;
+    return {
+      left: Math.min(Math.max(4, left), Math.max(4, window.innerWidth - w - 4)),
+      top: Math.min(Math.max(4, top), Math.max(4, window.innerHeight - h - 4))
+    };
+  }
+
+  function placeFab(fab, left, top) {
+    var p = clampFab(fab, left, top);
+    fab.style.left = p.left + "px";
+    fab.style.top = p.top + "px";
+    fab.style.right = "auto";
+    fab.style.bottom = "auto";
+  }
+
+  function applyFabPosition(fab) {
+    var pos = readFabPos();
+    if (pos && typeof pos.left === "number" && typeof pos.top === "number") placeFab(fab, pos.left, pos.top);
+  }
+
+  function makeFabDraggable(fab) {
+    var THRESH = 4;
+    var startX = 0, startY = 0, baseLeft = 0, baseTop = 0;
+    var pointerId = null, dragging = false, wasDragged = false;
+
+    fab.addEventListener("pointerdown", function (event) {
+      if (event.button != null && event.button !== 0) return;
+      var rect = fab.getBoundingClientRect();
+      baseLeft = rect.left;
+      baseTop = rect.top;
+      startX = event.clientX;
+      startY = event.clientY;
+      dragging = false;
+      pointerId = event.pointerId;
+      try { fab.setPointerCapture(pointerId); } catch (err) {}
+    });
+
+    fab.addEventListener("pointermove", function (event) {
+      if (pointerId === null) return;
+      var dx = event.clientX - startX, dy = event.clientY - startY;
+      if (!dragging && Math.abs(dx) + Math.abs(dy) < THRESH) return;
+      dragging = true;
+      wasDragged = true;
+      fab.classList.add("dragging");
+      placeFab(fab, baseLeft + dx, baseTop + dy);
+    });
+
+    function endDrag() {
+      if (pointerId === null) return;
+      try { fab.releasePointerCapture(pointerId); } catch (err) {}
+      pointerId = null;
+      fab.classList.remove("dragging");
+      if (dragging) {
+        writeFabPos({ left: parseFloat(fab.style.left) || 0, top: parseFloat(fab.style.top) || 0 });
+        // Safety net: clear the drag flag even if no click event follows.
+        setTimeout(function () { wasDragged = false; }, 400);
+      }
+      dragging = false;
+    }
+
+    fab.addEventListener("pointerup", endDrag);
+    fab.addEventListener("pointercancel", endDrag);
+
+    // Swallow the click that trails a drag so the modal does not pop open.
+    fab.addEventListener("click", function (event) {
+      if (wasDragged) {
+        event.stopImmediatePropagation();
+        event.preventDefault();
+        wasDragged = false;
+      }
+    }, true);
+  }
+
   function markdownFence(value, indent) {
     var text = String(value || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim();
     var runs = text.match(/`+/g) || [];
@@ -556,6 +650,8 @@
       closePop();
     });
     $("cFab").addEventListener("click", openModal);
+    applyFabPosition($("cFab"));
+    makeFabDraggable($("cFab"));
     $("cClose").addEventListener("click", closeModal);
     $("cModal").addEventListener("click", function (event) {
       if (event.target === $("cModal")) closeModal();
@@ -619,6 +715,11 @@
   function bindGlobalEvents() {
     if (globalEventsBound) return;
     globalEventsBound = true;
+    // Keep a dragged FAB on-screen when the window shrinks.
+    window.addEventListener("resize", function () {
+      var fab = $("cFab");
+      if (fab && fab.style.left) placeFab(fab, parseFloat(fab.style.left) || 0, parseFloat(fab.style.top) || 0);
+    });
     document.addEventListener("contextmenu", function (event) {
       var el = findReviewTarget(event.target);
       if (!el) return;
