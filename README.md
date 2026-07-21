@@ -21,7 +21,7 @@
 Right-click what you want changed and leave the note where it belongs. Fidibaku keeps the comment attached to that element.
 
 <p align="center">
-  <img src="docs/assets/comment-on-ui.png" width="1000" alt="A Fidibaku comment attached directly to a website headline">
+  <img src="docs/assets/comment-on-ui.png" width="1000" alt="A Fidibaku comment attached directly to a website cloud illustration">
 </p>
 
 <br>
