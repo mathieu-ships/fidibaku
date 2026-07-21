@@ -36,6 +36,16 @@ The comments are ordinary files in your project. Claude Code, Codex, or another 
 
 <br>
 
+### 3. Review the result
+
+Your agent changes the real code. Refresh the page, review the result, and leave another comment if it needs one more pass.
+
+<p align="center">
+  <img src="docs/assets/result-in-ui.png" width="1000" alt="The updated website after a coding agent implemented the Fidibaku comments">
+</p>
+
+<br>
+
 ## Start a review
 
 For a running local website:
