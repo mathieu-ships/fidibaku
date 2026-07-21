@@ -3,117 +3,189 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Fidibaku example report</title>
+<title>Fidibaku website review example</title>
 <style>
   :root {
-    --ground: #fafaf8;
-    --ink: #0b0b0c;
-    --muted: #666b72;
-    --hair: #e2e2dd;
-    --hair-strong: #ccccC5;
-    --green: #2f8f4e;
-    --amber: #b7791f;
-    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    --ground: #f3efe6;
+    --ink: #171711;
+    --muted: #69685f;
+    --hair: #cbc7bc;
+    --hair-strong: #a8a398;
+    --amber: #e65d2f;
+    --green: #1f7551;
+    --acid: #dbea54;
+    --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
     background: var(--ground);
     color: var(--ink);
-    font-family: var(--mono);
-    font-size: 14px;
-    line-height: 1.65;
+    font-family: Georgia, "Times New Roman", serif;
   }
-  main {
-    width: min(880px, calc(100vw - 32px));
-    margin: 48px auto 120px;
+  .shell {
+    width: min(1120px, calc(100vw - 48px));
+    margin: 0 auto;
   }
-  header {
-    border-bottom: 1px solid var(--hair);
-    padding-bottom: 18px;
-    margin-bottom: 24px;
+  nav {
+    height: 74px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--ink);
+    font: 700 11px/1 var(--mono);
+    letter-spacing: .12em;
+    text-transform: uppercase;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand-mark {
+    width: 18px;
+    height: 18px;
+    background: var(--ink);
+    border-radius: 50% 50% 3px 50%;
+    transform: rotate(45deg);
+  }
+  .nav-links { display: flex; gap: 28px; align-items: center; }
+  .nav-links a { color: inherit; text-decoration: none; }
+  .nav-links .nav-cta { border-bottom: 2px solid var(--ink); padding-bottom: 5px; }
+  .hero {
+    min-height: 525px;
+    display: grid;
+    grid-template-columns: 1.18fr .82fr;
+    align-items: stretch;
+    border-bottom: 1px solid var(--ink);
+  }
+  .hero-copy {
+    padding: 66px 58px 56px 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+  }
+  .eyebrow {
+    margin: 0 0 24px;
+    font: 700 11px/1.2 var(--mono);
+    letter-spacing: .14em;
+    text-transform: uppercase;
   }
   h1 {
-    margin: 0 0 8px;
-    font-size: 28px;
-    line-height: 1.15;
-    letter-spacing: 0;
-  }
-  p {
-    color: var(--muted);
+    max-width: 700px;
     margin: 0;
+    font-size: clamp(54px, 6.6vw, 92px);
+    font-weight: 400;
+    line-height: .88;
+    letter-spacing: -.055em;
   }
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    border: 1px solid var(--hair);
-  }
-  .card {
-    padding: 16px;
-    border-right: 1px solid var(--hair);
-    min-height: 150px;
-  }
-  .card:last-child {
-    border-right: none;
-  }
-  .card h2 {
-    margin: 0 0 8px;
-    font-size: 15px;
-  }
-  table {
-    width: 100%;
-    margin-top: 24px;
-    border-collapse: collapse;
-    border: 1px solid var(--hair);
-  }
-  th, td {
-    padding: 10px 12px;
-    border-bottom: 1px solid var(--hair);
-    text-align: left;
-  }
-  th {
-    font-size: 11px;
+  h1 em { color: var(--green); font-weight: 400; }
+  .hero-copy > p:not(.eyebrow) {
+    max-width: 520px;
+    margin: 30px 0 0;
     color: var(--muted);
+    font: 400 17px/1.55 var(--mono);
+  }
+  .hero-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 24px;
+    margin-top: 34px;
+    padding: 15px 17px;
+    color: #fffdf7;
+    background: var(--ink);
+    border: 1px solid var(--ink);
+    font: 700 12px/1 var(--mono);
+    letter-spacing: .08em;
+    text-decoration: none;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+  }
+  .hero-cta span { color: var(--acid); font-size: 17px; }
+  .hero-art {
+    position: relative;
+    overflow: hidden;
+    border-left: 1px solid var(--ink);
+    background: var(--amber);
+  }
+  .hero-art::before {
+    content: "";
+    position: absolute;
+    width: 350px;
+    height: 350px;
+    top: 82px;
+    left: 45px;
+    border: 1px solid var(--ink);
+    border-radius: 50%;
+    background: var(--acid);
+  }
+  .hero-art::after {
+    content: "";
+    position: absolute;
+    width: 255px;
+    height: 385px;
+    top: 145px;
+    left: 96px;
+    background: var(--ink);
+    clip-path: polygon(49% 0, 100% 100%, 0 100%);
+  }
+  .art-label {
+    position: absolute;
+    z-index: 1;
+    top: 25px;
+    right: 25px;
+    margin: 0;
+    font: 700 10px/1.2 var(--mono);
+    letter-spacing: .12em;
+    text-align: right;
+    text-transform: uppercase;
+  }
+  .ticker {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 20px 0;
+    font: 700 11px/1 var(--mono);
+    letter-spacing: .11em;
+    text-transform: uppercase;
+  }
+  .ticker b { color: var(--green); }
+  @media (max-width: 760px) {
+    .nav-links a:not(.nav-cta) { display: none; }
+    .hero { grid-template-columns: 1fr; }
+    .hero-copy { padding: 56px 0; }
+    .hero-art { min-height: 340px; border-left: 0; border-top: 1px solid var(--ink); }
+    .ticker span:nth-child(2) { display: none; }
   }
 </style>
 </head>
 <body>
-<main>
-  <header data-review-id="example:intro" data-review-group="Overview" data-review-label="Intro">
-    <h1>Review-ready static report</h1>
-    <p>Run <code>fidibaku serve examples/report.html</code>, then right-click the heading, cards, or table rows.</p>
-  </header>
+  <div class="shell">
+    <nav data-review-id="site:navigation" data-review-group="Navigation" data-review-label="Main navigation">
+      <div class="brand"><span class="brand-mark"></span> Fieldwork</div>
+      <div class="nav-links">
+        <a href="#">Work</a>
+        <a href="#">Notes</a>
+        <a class="nav-cta" href="#">Start a project</a>
+      </div>
+    </nav>
 
-  <section class="grid">
-    <article class="card" data-review-id="example:card:served" data-review-group="Cards" data-review-label="Served mode">
-      <h2>Served mode</h2>
-      <p>Autosaves to sidecar files next to the report in every browser.</p>
-    </article>
-    <article class="card" data-review-id="example:card:standalone" data-review-group="Cards" data-review-label="Standalone mode">
-      <h2>Standalone mode</h2>
-      <p>Bundled files keep localStorage, Copy/Download, and Chromium File System Access fallback.</p>
-    </article>
-    <article class="card" data-review-id="example:card:agent" data-review-group="Cards" data-review-label="Agent round-trip">
-      <h2>Agent round-trip</h2>
-      <p>The agent can mark a comment resolved and attach a reply with the CLI.</p>
-    </article>
-  </section>
+    <main class="hero">
+      <section class="hero-copy" data-review-id="site:hero:copy" data-review-group="Hero" data-review-label="Hero copy">
+        <p class="eyebrow">Independent design practice · London</p>
+        <h1>Make room for <em>better ideas.</em></h1>
+        <p>Strategy, identity, and digital experiences for teams building what comes next.</p>
+        <a class="hero-cta" href="#" data-review-id="site:hero:cta" data-review-group="Hero" data-review-label="Primary call to action">
+          See selected work <span>↗</span>
+        </a>
+      </section>
 
-  <table>
-    <thead>
-      <tr><th>Item</th><th>Status</th><th>Note</th></tr>
-    </thead>
-    <tbody>
-      <tr data-review-id="example:row:api" data-review-group="Checklist" data-review-label="Review API">
-        <td>Review API</td><td>Ready</td><td>Token-protected localhost comments endpoint.</td>
-      </tr>
-      <tr data-review-id="example:row:sidecars" data-review-group="Checklist" data-review-label="Sidecar files">
-        <td>Sidecars</td><td>Ready</td><td>JSON source of truth plus generated Markdown.</td>
-      </tr>
-    </tbody>
-  </table>
-</main>
+      <aside class="hero-art" data-review-id="site:hero:art" data-review-group="Hero" data-review-label="Hero artwork">
+        <p class="art-label">Field note 04<br>Form follows feeling</p>
+      </aside>
+    </main>
+
+    <footer class="ticker" data-review-id="site:services" data-review-group="Footer" data-review-label="Services ticker">
+      <span><b>●</b> Brand systems</span>
+      <span><b>●</b> Digital products</span>
+      <span><b>●</b> Creative direction</span>
+    </footer>
+  </div>
 </body>
 </html>

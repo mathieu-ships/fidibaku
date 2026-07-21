@@ -1,7 +1,7 @@
 {
   "name": "fidibaku",
   "version": "0.1.0",
-  "description": "Drop-in, right-click commenting for local HTML reports and localhost apps with sidecar autosave.",
+  "description": "Right-click website and UI reviews that coding agents can read and act on.",
   "homepage": "https://github.com/mathieu-ships/fidibaku#readme",
   "repository": {
     "type": "git",
@@ -25,6 +25,7 @@
     "server/",
     "vite/",
     "schema/",
+    "docs/assets/",
     "docs/architecture.md",
     "docs/releasing.md",
     "docs/runbook-example.md",
@@ -41,8 +42,9 @@
     "html",
     "comments",
     "review",
-    "static-site",
-    "agent"
+    "ui-review",
+    "website-review",
+    "coding-agent"
   ],
   "license": "MIT"
 }

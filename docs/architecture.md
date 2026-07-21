@@ -1,6 +1,6 @@
 # Fidibaku architecture
 
-Fidibaku is a local review layer for HTML reports and localhost apps. It lets a reviewer right-click page elements, leave anchored comments, and persist those comments as sidecar files an agent or teammate can read.
+Fidibaku is a local review layer for websites, product UI, and HTML artifacts. It lets a reviewer right-click page elements, leave anchored comments, and persist those comments as sidecar files an agent or teammate can read.
 
 ## Modes
 

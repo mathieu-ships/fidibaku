@@ -16,14 +16,13 @@ function usage(exitCode) {
   const out = exitCode ? process.stderr : process.stdout;
   out.write(`fidibaku
 
-Drop-in right-click commenting for websites, landing pages, slides, runbooks,
-local HTML reports, and localhost apps.
-Comments autosave to sidecar files so an AI agent or teammate can read and
-act on review feedback without losing where each comment was anchored.
+Right-click website and UI review for coding agents.
+Comments stay anchored to the exact element and save to local sidecar files
+that Claude Code, Codex, or any file-reading agent can act on.
 
 Quick start:
-  fidibaku review report.html
-  fidibaku runbook
+  fidibaku review http://localhost:3000
+  fidibaku review page.html
   fidibaku attach http://localhost:3000
 
 What happens:
@@ -32,19 +31,14 @@ What happens:
   3. Comments write to <target>.comments.json and <target>.comments.md.
   4. Agents can read the Markdown/JSON and resolve items with fidibaku resolve.
 
-Important:
-  Use Fidibaku for the comment mechanism. Do not rebuild comment popovers,
-  sidecar writing, or browser persistence from example HTML. The runbook
-  command is a content/layout example for larger review artifacts.
-
 Common workflows:
-  Static HTML file      fidibaku review report.html
-  Website or slides     fidibaku review deck.html
-  Runbook template      fidibaku runbook
+  Running local site    fidibaku review http://localhost:3000
+  Static HTML page      fidibaku review page.html
   Existing localhost   fidibaku attach http://localhost:3000
   No app changes       fidibaku proxy http://localhost:3000
   Export comments      fidibaku export report.html
   Resolve feedback     fidibaku resolve report.html --id <id> --reply "Done"
+  Larger plan example  fidibaku runbook
 
 Usage:
   fidibaku attach <localhost-url> [--port <port>] [--open] [--no-open] [--no-token] [--comments <sidecar-base.html>]
