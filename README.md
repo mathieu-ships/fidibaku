@@ -14,6 +14,28 @@
 
 <br>
 
+## From feedback to code
+
+### 1. Comment on the exact UI
+
+Right-click what you want changed and leave the note where it belongs. Fidibaku keeps the comment attached to that element.
+
+<p align="center">
+  <img src="docs/assets/comment-on-ui.png" width="1000" alt="A Fidibaku comment attached directly to a website headline">
+</p>
+
+<br>
+
+### 2. Your coding agent reads it
+
+The comments are ordinary files in your project. Claude Code, Codex, or another coding agent can read them, map them to the code, and start implementing.
+
+<p align="center">
+  <img src="docs/assets/agent-reads-comments.png" width="760" alt="Codex reading two Fidibaku comment sidecars and turning them into implementation tasks">
+</p>
+
+<br>
+
 ## Start a review
 
 For a running local website:
