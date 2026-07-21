@@ -334,6 +334,12 @@ function pipeProxyRequest(clientReq, clientRes, upstreamUrl, context) {
 
     const transport = targetUrl.protocol === "https:" ? https : http;
     const headers = { ...clientReq.headers, host: targetUrl.host };
+    // Ask upstream for an unencoded body. The proxy buffers HTML responses and
+    // rewrites them to inject the review client, so it must not receive a gzip/br
+    // body: it would inject into the compressed bytes yet still forward the
+    // upstream Content-Encoding header, and the browser rejects the mismatch with
+    // a Content-Encoding error. On loopback the lost compression is negligible.
+    headers["accept-encoding"] = "identity";
     delete headers.connection;
     delete headers["keep-alive"];
     delete headers["proxy-authenticate"];
