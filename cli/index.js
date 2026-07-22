@@ -53,6 +53,7 @@ Usage:
 
 Docs:
   https://github.com/mathieu-ships/fidibaku
+  Agent guide: https://github.com/mathieu-ships/fidibaku/blob/main/cli/README.md
   https://www.npmjs.com/package/fidibaku
 
 `);
