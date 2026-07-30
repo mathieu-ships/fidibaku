@@ -263,11 +263,11 @@
       '<div class="cmodal" id="cModal"><div class="cmwrap">',
       '<span class="ctick tl"></span><span class="ctick tr"></span><span class="ctick bl"></span><span class="ctick br"></span>',
       '<div class="cmhead"><span class="t">Comments</span><button class="cmx" id="cClose">esc</button></div>',
-      '<div class="cmbody"><p>Right-click any marked element to add or edit a comment. Comments autosave when a file or server adapter is connected.</p><div id="cList"></div><details class="cmd-details"><summary>Show markdown</summary><textarea id="cMd" readonly></textarea></details></div>',
+      '<div class="cmbody"><p>Right-click any marked element to add or edit a comment, or click a comment below to edit it. Comments autosave when a file or server adapter is connected.</p><div id="cList"></div><details class="cmd-details"><summary>Show markdown</summary><textarea id="cMd" readonly></textarea></details></div>',
       '<div class="cmfoot" style="justify-content:space-between"><span class="as-status" id="asStatus"><span class="d"></span>Autosave: local only</span><button class="cmbtn" id="asConnect">Connect file</button></div>',
       '<div class="cmfoot"><button class="cmbtn ghost" id="cCopy">Copy markdown</button><button class="cmbtn ghost" id="cDownload">Download .md</button><button class="cmbtn ghost" id="cClear">Clear all</button></div>',
       '</div></div>',
-      '<div class="cpop" id="cPop"><div class="cpop-h"><span class="lbl" id="cpopLabel"></span><button class="del" id="cpopDel">delete</button></div><textarea id="cpopTa" placeholder="Comment for the agent to implement..."></textarea><div class="cpop-f"><span class="muted">auto-saves</span><button class="done" id="cpopDone">done</button></div></div>'
+      '<div class="cpop" id="cPop"><div class="cpop-h" title="Drag to reposition"><span class="lbl" id="cpopLabel"></span><button class="del" id="cpopDel">delete</button></div><textarea id="cpopTa" placeholder="Comment for the agent to implement..."></textarea><div class="cpop-f"><span class="muted">auto-saves</span><button class="done" id="cpopDone">done</button></div></div>'
     ].join("");
     // Mount everything under one tracked root so a host framework re-render
     // (e.g. SSR hydration replacing <body>) can be detected and healed.
@@ -340,11 +340,11 @@
     $("cList").innerHTML = ids.map(function (id) {
       var c = comments[id];
       var orphan = anchored[id] ? "" : " / orphaned";
-      var reply = c.reply && c.reply.text ? '<div class="cl-reply">Reply: ' + escHtml(c.reply.text) + '</div>' : "";
-      return '<div class="cl-item"><div class="cl-main"><div class="cl-loc">' +
+      var reply = c.reply && c.reply.text ? '<span class="cl-reply">Reply: ' + escHtml(c.reply.text) + '</span>' : "";
+      return '<div class="cl-item"><button class="cl-main" data-edit="' + escHtml(id) + '" aria-label="Edit comment for ' + escHtml(c.label) + '"><span class="cl-loc">' +
         escHtml(c.group) + ' / ' + escHtml(c.label) +
-        '<span class="cl-status">[' + escHtml(c.status || "open") + orphan + ']</span></div><div class="cl-txt">' +
-        escHtml(c.text) + '</div>' + reply + '</div><button class="cl-del" data-del="' + escHtml(id) + '">remove</button></div>';
+        '<span class="cl-status">[' + escHtml(c.status || "open") + orphan + ']</span></span><span class="cl-txt">' +
+        escHtml(c.text) + '</span>' + reply + '</button><button class="cl-del" data-del="' + escHtml(id) + '">remove</button></div>';
     }).join("");
   }
 
@@ -359,26 +359,70 @@
     if (modal) modal.classList.remove("open");
   }
 
+  function findAnchor(id) {
+    var found = null;
+    document.querySelectorAll(SELECTOR).forEach(function (el) {
+      if (!found && itemId(el) === id) found = el;
+    });
+    return found;
+  }
+
+  function positionPop(left, top) {
+    var pop = $("cPop");
+    if (!pop) return;
+    var pad = 8;
+    var width = pop.offsetWidth || 300;
+    var height = pop.offsetHeight || 180;
+    var minX = window.scrollX + pad;
+    var minY = window.scrollY + pad;
+    var maxX = window.scrollX + document.documentElement.clientWidth - width - pad;
+    var maxY = window.scrollY + document.documentElement.clientHeight - height - pad;
+    pop.style.left = Math.max(minX, Math.min(left, Math.max(minX, maxX))) + "px";
+    pop.style.top = Math.max(minY, Math.min(top, Math.max(minY, maxY))) + "px";
+  }
+
   var popEl = null;
-  function openPop(el, x, y) {
+  var popId = "";
+  function openPopForComment(id, el, x, y) {
     if (!$("cPop")) return;
-    popEl = el;
-    $("cpopLabel").textContent = (itemGroup(el) ? itemGroup(el) + " · " : "") + itemLabel(el);
-    $("cpopTa").value = getC(itemId(el));
+    var c = comments[id] || {};
+    var group = el ? itemGroup(el) : (c.group || "Ungrouped");
+    var label = el ? itemLabel(el) : (c.label || id);
+    popEl = el || null;
+    popId = id;
+    $("cpopLabel").textContent = (group ? group + " · " : "") + label;
+    $("cpopTa").value = getC(id);
     $("cPop").classList.add("open");
-    var w = 300;
-    var ph = $("cPop").offsetHeight || 180;
-    var maxX = window.scrollX + document.documentElement.clientWidth - w - 12;
-    var maxY = window.scrollY + document.documentElement.clientHeight - ph - 12;
-    $("cPop").style.left = Math.max(window.scrollX + 8, Math.min(x, maxX)) + "px";
-    $("cPop").style.top = Math.max(window.scrollY + 8, Math.min(y, maxY)) + "px";
+    positionPop(x, y);
     $("cpopTa").focus();
+  }
+
+  function openPop(el, x, y) {
+    openPopForComment(itemId(el), el, x, y);
+  }
+
+  function setPopComment(text) {
+    if (!popId) return false;
+    var c = comments[popId] || {};
+    setC(
+      popId,
+      popEl ? itemGroup(popEl) : c.group,
+      popEl ? itemLabel(popEl) : c.label,
+      text
+    );
+    return true;
   }
 
   function closePop() {
     var pop = $("cPop");
     if (pop) pop.classList.remove("open");
     popEl = null;
+    popId = "";
+    var modal = $("cModal");
+    if (modal && modal.classList.contains("open")) {
+      renderList();
+      $("cMd").value = buildMd();
+    }
   }
 
   function setStatus(className, html, connectVisible, connectText, fileOn) {
@@ -534,27 +578,52 @@
   function bindScaffoldEvents() {
     if (!$("cpopTa")) return;
     $("cpopTa").addEventListener("input", function () {
-      if (!popEl) return;
-      setC(itemId(popEl), itemGroup(popEl), itemLabel(popEl), $("cpopTa").value);
-      markComments();
+      if (setPopComment($("cpopTa").value)) markComments();
     });
     $("cpopTa").addEventListener("keydown", function (event) {
       if (event.key !== "Enter" || event.shiftKey) return;
       event.preventDefault();
-      if (popEl) {
-        setC(itemId(popEl), itemGroup(popEl), itemLabel(popEl), $("cpopTa").value);
-        markComments();
-      }
+      if (setPopComment($("cpopTa").value)) markComments();
       closePop();
     });
     $("cpopDone").addEventListener("click", closePop);
     $("cpopDel").addEventListener("click", function () {
-      if (!popEl) return;
-      setC(itemId(popEl), itemGroup(popEl), itemLabel(popEl), "");
+      if (!setPopComment("")) return;
       $("cpopTa").value = "";
       markComments();
       closePop();
     });
+    var drag = null;
+    var dragHandle = $("cPop").querySelector(".cpop-h");
+    dragHandle.addEventListener("pointerdown", function (event) {
+      if (event.button !== 0 || event.target.closest("button")) return;
+      var rect = $("cPop").getBoundingClientRect();
+      drag = {
+        pointerId: event.pointerId,
+        offsetX: event.clientX - rect.left,
+        offsetY: event.clientY - rect.top
+      };
+      try { dragHandle.setPointerCapture(event.pointerId); } catch (err) {}
+      $("cPop").classList.add("dragging");
+      event.preventDefault();
+    });
+    dragHandle.addEventListener("pointermove", function (event) {
+      if (!drag || event.pointerId !== drag.pointerId) return;
+      positionPop(
+        window.scrollX + event.clientX - drag.offsetX,
+        window.scrollY + event.clientY - drag.offsetY
+      );
+    });
+    function finishDrag(event) {
+      if (!drag || event.pointerId !== drag.pointerId) return;
+      try {
+        if (dragHandle.hasPointerCapture(event.pointerId)) dragHandle.releasePointerCapture(event.pointerId);
+      } catch (err) {}
+      drag = null;
+      $("cPop").classList.remove("dragging");
+    }
+    dragHandle.addEventListener("pointerup", finishDrag);
+    dragHandle.addEventListener("pointercancel", finishDrag);
     $("cFab").addEventListener("click", openModal);
     $("cClose").addEventListener("click", closeModal);
     $("cModal").addEventListener("click", function (event) {
@@ -562,13 +631,20 @@
     });
     $("cList").addEventListener("click", function (event) {
       var button = event.target.closest("[data-del]");
-      if (!button) return;
-      delete comments[button.dataset.del];
-      writeLocal(comments);
-      scheduleSave();
-      markComments();
-      renderList();
-      $("cMd").value = buildMd();
+      if (button) {
+        delete comments[button.dataset.del];
+        writeLocal(comments);
+        scheduleSave();
+        markComments();
+        renderList();
+        $("cMd").value = buildMd();
+        return;
+      }
+      var edit = event.target.closest("[data-edit]");
+      if (!edit) return;
+      event.stopPropagation();
+      var id = edit.dataset.edit;
+      openPopForComment(id, findAnchor(id), event.pageX, event.pageY);
     });
     $("cCopy").addEventListener("click", function () {
       var md = buildMd();
@@ -619,6 +695,11 @@
   function bindGlobalEvents() {
     if (globalEventsBound) return;
     globalEventsBound = true;
+    window.addEventListener("resize", function () {
+      var pop = $("cPop");
+      if (!pop || !pop.classList.contains("open")) return;
+      positionPop(parseFloat(pop.style.left) || window.scrollX, parseFloat(pop.style.top) || window.scrollY);
+    });
     document.addEventListener("contextmenu", function (event) {
       var el = findReviewTarget(event.target);
       if (!el) return;
