@@ -23,6 +23,11 @@
     return document.getElementById(id);
   }
 
+  function hasTextSelection() {
+    var sel = window.getSelection ? window.getSelection() : null;
+    return !!(sel && !sel.isCollapsed && String(sel).trim());
+  }
+
   function escHtml(value) {
     return String(value || "")
       .replace(/&/g, "&amp;")
@@ -263,11 +268,11 @@
       '<div class="cmodal" id="cModal"><div class="cmwrap">',
       '<span class="ctick tl"></span><span class="ctick tr"></span><span class="ctick bl"></span><span class="ctick br"></span>',
       '<div class="cmhead"><span class="t">Comments</span><button class="cmx" id="cClose">esc</button></div>',
-      '<div class="cmbody"><p>Right-click any marked element to add or edit a comment. Comments autosave when a file or server adapter is connected.</p><div id="cList"></div><details class="cmd-details"><summary>Show markdown</summary><textarea id="cMd" readonly></textarea></details></div>',
+      '<div class="cmbody"><p>Right-click any marked element to add or edit a comment, or click a comment below to edit it. Comments autosave when a file or server adapter is connected.</p><div id="cList"></div><details class="cmd-details"><summary>Show markdown</summary><textarea id="cMd" readonly></textarea></details></div>',
       '<div class="cmfoot" style="justify-content:space-between"><span class="as-status" id="asStatus"><span class="d"></span>Autosave: local only</span><button class="cmbtn" id="asConnect">Connect file</button></div>',
       '<div class="cmfoot"><button class="cmbtn ghost" id="cCopy">Copy markdown</button><button class="cmbtn ghost" id="cDownload">Download .md</button><button class="cmbtn ghost" id="cClear">Clear all</button></div>',
       '</div></div>',
-      '<div class="cpop" id="cPop"><div class="cpop-h"><span class="lbl" id="cpopLabel"></span><button class="del" id="cpopDel">delete</button></div><textarea id="cpopTa" placeholder="Comment for the agent to implement..."></textarea><div class="cpop-f"><span class="muted">auto-saves</span><button class="done" id="cpopDone">done</button></div></div>'
+      '<div class="cpop" id="cPop"><div class="cpop-h" title="Drag to reposition"><span class="lbl" id="cpopLabel"></span><button class="del" id="cpopDel">delete</button></div><textarea id="cpopTa" placeholder="Comment for the agent to implement..."></textarea><div class="cpop-f"><span class="muted">auto-saves</span><button class="done" id="cpopDone">done</button></div></div>'
     ].join("");
     // Mount everything under one tracked root so a host framework re-render
     // (e.g. SSR hydration replacing <body>) can be detected and healed.
@@ -341,10 +346,15 @@
       var c = comments[id];
       var orphan = anchored[id] ? "" : " / orphaned";
       var reply = c.reply && c.reply.text ? '<div class="cl-reply">Reply: ' + escHtml(c.reply.text) + '</div>' : "";
-      return '<div class="cl-item"><div class="cl-main"><div class="cl-loc">' +
+      // The body stays plain markup so its text is selectable and announced as
+      // content; the edit button is the keyboard/AT path to the same editor.
+      return '<div class="cl-item"><div class="cl-main" data-edit="' + escHtml(id) + '"><div class="cl-loc">' +
         escHtml(c.group) + ' / ' + escHtml(c.label) +
         '<span class="cl-status">[' + escHtml(c.status || "open") + orphan + ']</span></div><div class="cl-txt">' +
-        escHtml(c.text) + '</div>' + reply + '</div><button class="cl-del" data-del="' + escHtml(id) + '">remove</button></div>';
+        escHtml(c.text) + '</div>' + reply + '</div><div class="cl-actions">' +
+        '<button class="cl-edit" data-edit="' + escHtml(id) + '" aria-label="Edit comment for ' + escHtml(c.label) + '">edit</button>' +
+        '<button class="cl-del" data-del="' + escHtml(id) + '" aria-label="Remove comment for ' + escHtml(c.label) + '">remove</button>' +
+        '</div></div>';
     }).join("");
   }
 
@@ -359,26 +369,151 @@
     if (modal) modal.classList.remove("open");
   }
 
+  function findAnchor(id) {
+    var found = null;
+    document.querySelectorAll(SELECTOR).forEach(function (el) {
+      if (!found && itemId(el) === id) found = el;
+    });
+    return found;
+  }
+
+  function positionPop(left, top) {
+    var pop = $("cPop");
+    if (!pop) return;
+    var pad = 8;
+    var width = pop.offsetWidth || 300;
+    var height = pop.offsetHeight || 180;
+    var minX = window.scrollX + pad;
+    var minY = window.scrollY + pad;
+    var maxX = window.scrollX + document.documentElement.clientWidth - width - pad;
+    var maxY = window.scrollY + document.documentElement.clientHeight - height - pad;
+    pop.style.left = Math.max(minX, Math.min(left, Math.max(minX, maxX))) + "px";
+    pop.style.top = Math.max(minY, Math.min(top, Math.max(minY, maxY))) + "px";
+  }
+
+  // Drag state is module-level and the move/end listeners are bound once on
+  // `document` (see bindGlobalEvents): pointer capture retargets them to the
+  // handle, and they still fire if capture is unavailable and the pointer leaves
+  // the handle mid-drag. Binding them per-scaffold would leak a listener set on
+  // every host re-render.
+  var drag = null;
+  var suppressPopClose = false;
+
+  function dragHandle() {
+    var pop = $("cPop");
+    return pop ? pop.querySelector(".cpop-h") : null;
+  }
+
+  function startDrag(event) {
+    var pop = $("cPop");
+    if (!pop || event.button !== 0 || event.target.closest("button")) return;
+    var rect = pop.getBoundingClientRect();
+    drag = {
+      pointerId: event.pointerId,
+      offsetX: event.clientX - rect.left,
+      offsetY: event.clientY - rect.top,
+      moved: false
+    };
+    try { event.currentTarget.setPointerCapture(event.pointerId); } catch (err) {}
+    pop.classList.add("dragging");
+    event.preventDefault();
+  }
+
+  function moveDrag(event) {
+    if (!drag || event.pointerId !== drag.pointerId) return;
+    drag.moved = true;
+    positionPop(
+      window.scrollX + event.clientX - drag.offsetX,
+      window.scrollY + event.clientY - drag.offsetY
+    );
+  }
+
+  function finishDrag(event) {
+    if (!drag || event.pointerId !== drag.pointerId) return;
+    var handle = dragHandle();
+    try {
+      if (handle && handle.hasPointerCapture(event.pointerId)) handle.releasePointerCapture(event.pointerId);
+    } catch (err) {}
+    // preventDefault on pointerdown suppresses the compat mouse events but not
+    // `click`, which lands on the common ancestor of the down/up targets --
+    // often <body>, which the outside-click handler would read as "dismiss".
+    if (drag.moved) suppressPopClose = true;
+    drag = null;
+    var pop = $("cPop");
+    if (pop) pop.classList.remove("dragging");
+  }
+
   var popEl = null;
-  function openPop(el, x, y) {
+  var popId = "";
+  // Captured at open time: an orphaned comment has no element to read them from,
+  // and clearing its text deletes the map entry we would otherwise fall back to.
+  var popGroup = "";
+  var popLabel = "";
+  var popDirty = false;
+  function openPopForComment(id, el, x, y) {
     if (!$("cPop")) return;
-    popEl = el;
-    $("cpopLabel").textContent = (itemGroup(el) ? itemGroup(el) + " · " : "") + itemLabel(el);
-    $("cpopTa").value = getC(itemId(el));
+    var c = comments[id] || {};
+    var group = el ? itemGroup(el) : (c.group || "Ungrouped");
+    var label = el ? itemLabel(el) : (c.label || id);
+    popEl = el || null;
+    popId = id;
+    popGroup = group;
+    popLabel = label;
+    popDirty = false;
+    $("cpopLabel").textContent = (group ? group + " · " : "") + label;
+    $("cpopTa").value = getC(id);
     $("cPop").classList.add("open");
-    var w = 300;
-    var ph = $("cPop").offsetHeight || 180;
-    var maxX = window.scrollX + document.documentElement.clientWidth - w - 12;
-    var maxY = window.scrollY + document.documentElement.clientHeight - ph - 12;
-    $("cPop").style.left = Math.max(window.scrollX + 8, Math.min(x, maxX)) + "px";
-    $("cPop").style.top = Math.max(window.scrollY + 8, Math.min(y, maxY)) + "px";
+    positionPop(x, y);
     $("cpopTa").focus();
   }
 
-  function closePop() {
+  function openPop(el, x, y) {
+    openPopForComment(itemId(el), el, x, y);
+  }
+
+  function setPopComment(text) {
+    if (!popId) return false;
+    setC(
+      popId,
+      popEl ? itemGroup(popEl) : popGroup,
+      popEl ? itemLabel(popEl) : popLabel,
+      text
+    );
+    popDirty = true;
+    return true;
+  }
+
+  function focusListItem(id) {
+    var list = $("cList");
+    if (!list) return;
+    var buttons = list.querySelectorAll(".cl-edit");
+    for (var i = 0; i < buttons.length; i += 1) {
+      if (buttons[i].dataset.edit === id) {
+        buttons[i].focus();
+        return;
+      }
+    }
+  }
+
+  // `restoreFocus` is for explicit dismissals (esc, done, delete). A click
+  // outside the popover must not steal focus from whatever was just clicked.
+  function closePop(restoreFocus) {
     var pop = $("cPop");
     if (pop) pop.classList.remove("open");
+    var closedId = popId;
+    var dirty = popDirty;
     popEl = null;
+    popId = "";
+    popGroup = "";
+    popLabel = "";
+    popDirty = false;
+    var modal = $("cModal");
+    if (!modal || !modal.classList.contains("open")) return;
+    if (dirty) {
+      renderList();
+      $("cMd").value = buildMd();
+    }
+    if (restoreFocus && closedId) focusListItem(closedId);
   }
 
   function setStatus(className, html, connectVisible, connectText, fileOn) {
@@ -534,27 +669,24 @@
   function bindScaffoldEvents() {
     if (!$("cpopTa")) return;
     $("cpopTa").addEventListener("input", function () {
-      if (!popEl) return;
-      setC(itemId(popEl), itemGroup(popEl), itemLabel(popEl), $("cpopTa").value);
-      markComments();
+      if (setPopComment($("cpopTa").value)) markComments();
     });
     $("cpopTa").addEventListener("keydown", function (event) {
       if (event.key !== "Enter" || event.shiftKey) return;
       event.preventDefault();
-      if (popEl) {
-        setC(itemId(popEl), itemGroup(popEl), itemLabel(popEl), $("cpopTa").value);
-        markComments();
-      }
-      closePop();
+      if (setPopComment($("cpopTa").value)) markComments();
+      closePop(true);
     });
-    $("cpopDone").addEventListener("click", closePop);
+    $("cpopDone").addEventListener("click", function () { closePop(true); });
     $("cpopDel").addEventListener("click", function () {
-      if (!popEl) return;
-      setC(itemId(popEl), itemGroup(popEl), itemLabel(popEl), "");
+      if (!setPopComment("")) return;
       $("cpopTa").value = "";
       markComments();
-      closePop();
+      closePop(true);
     });
+    var handle = dragHandle();
+    handle.addEventListener("pointerdown", startDrag);
+    handle.addEventListener("lostpointercapture", finishDrag);
     $("cFab").addEventListener("click", openModal);
     $("cClose").addEventListener("click", closeModal);
     $("cModal").addEventListener("click", function (event) {
@@ -562,13 +694,41 @@
     });
     $("cList").addEventListener("click", function (event) {
       var button = event.target.closest("[data-del]");
-      if (!button) return;
-      delete comments[button.dataset.del];
-      writeLocal(comments);
-      scheduleSave();
-      markComments();
-      renderList();
-      $("cMd").value = buildMd();
+      if (button) {
+        delete comments[button.dataset.del];
+        writeLocal(comments);
+        scheduleSave();
+        markComments();
+        renderList();
+        $("cMd").value = buildMd();
+        return;
+      }
+      var edit = event.target.closest("[data-edit]");
+      if (!edit) return;
+      // Clicking the body of an item opens the editor, but not when the click
+      // was the end of a text selection the reader is about to copy.
+      if (edit.classList.contains("cl-main") && hasTextSelection()) return;
+      event.stopPropagation();
+      var id = edit.dataset.edit;
+      var anchor = findAnchor(id);
+      // Bring the anchored element into view behind the modal (scroll-margin-top
+      // in review.css accounts for the fab) before placing the popover, so the
+      // position is computed against the final scroll offset.
+      if (anchor) {
+        var rect = anchor.getBoundingClientRect();
+        if (rect.bottom < 0 || rect.top > document.documentElement.clientHeight) {
+          anchor.scrollIntoView({ block: "center" });
+        }
+      }
+      // A keyboard-activated click reports 0,0; anchor the popover to the button.
+      var x = event.pageX;
+      var y = event.pageY;
+      if (!event.detail) {
+        var btn = edit.getBoundingClientRect();
+        x = window.scrollX + btn.left;
+        y = window.scrollY + btn.bottom + 6;
+      }
+      openPopForComment(id, anchor, x, y);
     });
     $("cCopy").addEventListener("click", function () {
       var md = buildMd();
@@ -619,6 +779,17 @@
   function bindGlobalEvents() {
     if (globalEventsBound) return;
     globalEventsBound = true;
+    window.addEventListener("resize", function () {
+      var pop = $("cPop");
+      if (!pop || !pop.classList.contains("open")) return;
+      var left = parseFloat(pop.style.left);
+      var top = parseFloat(pop.style.top);
+      positionPop(isNaN(left) ? window.scrollX : left, isNaN(top) ? window.scrollY : top);
+    });
+    document.addEventListener("pointerdown", function () { suppressPopClose = false; });
+    document.addEventListener("pointermove", moveDrag, { passive: true });
+    document.addEventListener("pointerup", finishDrag);
+    document.addEventListener("pointercancel", finishDrag);
     document.addEventListener("contextmenu", function (event) {
       var el = findReviewTarget(event.target);
       if (!el) return;
@@ -629,13 +800,23 @@
     });
     document.addEventListener("click", function (event) {
       var pop = $("cPop");
-      if (pop && pop.classList.contains("open") && !pop.contains(event.target)) closePop();
+      if (!pop || !pop.classList.contains("open")) return;
+      if (suppressPopClose) {
+        suppressPopClose = false;
+        return;
+      }
+      if (!pop.contains(event.target)) closePop();
     });
     document.addEventListener("keydown", function (event) {
-      if (event.key === "Escape") {
-        closePop();
-        closeModal();
+      if (event.key !== "Escape") return;
+      // The popover can be opened from inside the modal, so esc dismisses one
+      // layer at a time rather than tearing down both.
+      var pop = $("cPop");
+      if (pop && pop.classList.contains("open")) {
+        closePop(true);
+        return;
       }
+      closeModal();
     });
   }
 

@@ -157,6 +157,7 @@ tr.has-comment[data-review-status="resolved"] td:first-child {
 }
 
 .cmx,
+.cl-edit,
 .cl-del,
 .cpop-h .del {
   background: transparent;
@@ -170,10 +171,19 @@ tr.has-comment[data-review-status="resolved"] td:first-child {
 }
 
 .cmx:hover,
+.cl-edit:hover,
 .cl-del:hover,
 .cpop-h .del:hover {
   color: var(--fidibaku-ink);
   border-color: var(--fidibaku-hair-strong);
+}
+
+.cmx:focus-visible,
+.cl-edit:focus-visible,
+.cl-del:focus-visible,
+.cpop-h .del:focus-visible {
+  outline: 2px solid var(--fidibaku-ink);
+  outline-offset: 1px;
 }
 
 .cmbody {
@@ -252,6 +262,14 @@ tr.has-comment[data-review-status="resolved"] td:first-child {
   gap: 8px;
   padding: 8px 10px;
   border-bottom: 1px solid var(--fidibaku-hair);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.cpop.dragging .cpop-h {
+  cursor: grabbing;
 }
 
 .cpop-h .lbl {
@@ -313,6 +331,26 @@ tr.has-comment[data-review-status="resolved"] td:first-child {
   align-items: flex-start;
   padding: 10px 0;
   border-bottom: 1px solid var(--fidibaku-hair);
+}
+
+.cl-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 2px 4px;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.cl-main:hover {
+  background: var(--fidibaku-hair);
+  border-color: var(--fidibaku-hair-strong);
+}
+
+.cl-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
 }
 
 .cl-loc {
