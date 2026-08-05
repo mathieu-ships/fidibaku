@@ -303,7 +303,11 @@
   function updateFab() {
     if (!$("cCount")) return;
     var n = commentCount();
-    $("cCount").textContent = n;
+    // Only touch the DOM when the value actually changed. Rewriting textContent to
+    // the same string still replaces the text node, which is a childList mutation
+    // the scaffold observer below would pick up.
+    var count = $("cCount");
+    if (count.textContent !== String(n)) count.textContent = String(n);
     $("cFab").classList.toggle("empty", n === 0);
   }
 
@@ -648,8 +652,23 @@
   function observeScaffold() {
     if (typeof MutationObserver === "undefined" || !document.body) return;
     var scheduled = false;
-    var observer = new MutationObserver(function () {
+    var observer = new MutationObserver(function (records) {
       if (scheduled) return;
+      // Ignore mutations that originate inside our own overlay, or the observer
+      // feeds itself: markComments() -> updateFab() writes #cCount, which is in the
+      // observed subtree, which re-fires this callback, which re-runs markComments()
+      // every 300ms forever. On a busy host (polling status bars, spinners, toasts)
+      // the host's own churn compounds it, and the count badge visibly flickers.
+      // Only host-DOM changes are interesting here: new content to auto-anchor, or a
+      // scaffold the host has wiped.
+      var relevant = false;
+      for (var i = 0; i < records.length; i += 1) {
+        var target = records[i].target;
+        if (target && target.closest && target.closest(REVIEW_UI_SELECTOR + ",#cReviewRoot")) continue;
+        relevant = true;
+        break;
+      }
+      if (!relevant) return;
       scheduled = true;
       setTimeout(function () {
         scheduled = false;
