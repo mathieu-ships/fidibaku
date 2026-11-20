@@ -68,11 +68,28 @@ Fidibaku can generate fallback anchors, but generated or frequently edited pages
 - Use `data-review-group` to identify the page or section.
 - Use `data-review-label` to give the reviewer and agent a human-readable target.
 
+## Decks and single-page apps
+
+Each comment belongs to the view it was made on: by default `pathname + search + hash`, so `#2.2` and `#3.1` of a hash-routed deck are separate views even though they share elements. Markers show only on their own view; the Comments panel lists every view and jumps to a comment's view when clicked.
+
+When the URL doesn't identify the view (slides switched without a URL change, or a long page whose `#section` links are only scroll anchors), let the page name it, first match wins:
+
+```js
+window.fidibakuView = () => `slide-${currentSlide}`; // or a plain string
+document.documentElement.dataset.fidibakuView = "slide-3";
+```
+
+```html
+<meta name="fidibaku-view" content="report">
+```
+
+Dispatch `window.dispatchEvent(new Event("fidibaku:viewchange"))` if the view changes without a DOM change or navigation.
+
 ## Act on feedback and close the loop
 
 Fidibaku writes `<target>.comments.md` and `<target>.comments.json`. Markdown is the convenient agent handoff; JSON is the authoritative structured sidecar.
 
-1. Read the open comments and use their IDs, labels, groups, and element context to find the relevant source.
+1. Read the open comments and use their IDs, labels, groups, views, and element context to find the relevant source. The Markdown groups comments under one heading per view (`` ## View: `/#2.2` ``); JSON has a `view` field. Comments under "All views" predate views.
 2. Implement the requested changes in the real project and run the relevant checks.
 3. Resolve each completed comment with a useful reply:
 

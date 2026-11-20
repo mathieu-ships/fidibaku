@@ -39,6 +39,11 @@ tr.has-comment[data-review-status="resolved"] td:first-child {
   box-shadow: inset 3px 0 0 var(--fidibaku-green);
 }
 
+.review-flash {
+  outline: 2px solid var(--fidibaku-amber) !important;
+  outline-offset: 3px;
+}
+
 .cfab {
   position: fixed;
   right: 24px;
@@ -306,6 +311,38 @@ tr.has-comment[data-review-status="resolved"] td:first-child {
   cursor: pointer;
 }
 
+.cl-view {
+  font: 400 10px var(--fidibaku-font);
+  letter-spacing: 0.08em;
+  color: var(--fidibaku-muted);
+  padding: 14px 0 6px;
+  border-bottom: 1px solid var(--fidibaku-hair-strong);
+  overflow-wrap: anywhere;
+}
+
+.cl-view:first-child {
+  padding-top: 4px;
+}
+
+.cl-view.current {
+  color: var(--fidibaku-ink);
+}
+
+.cl-count {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 0 5px;
+  border: 1px solid var(--fidibaku-hair-strong);
+  border-radius: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cl-here {
+  margin-left: 6px;
+  text-transform: uppercase;
+  color: var(--fidibaku-green);
+}
+
 .cl-item {
   display: flex;
   gap: 12px;
@@ -313,6 +350,13 @@ tr.has-comment[data-review-status="resolved"] td:first-child {
   align-items: flex-start;
   padding: 10px 0;
   border-bottom: 1px solid var(--fidibaku-hair);
+  cursor: pointer;
+}
+
+.cl-item:hover .cl-txt {
+  text-decoration: underline;
+  text-decoration-color: var(--fidibaku-hair-strong);
+  text-underline-offset: 3px;
 }
 
 .cl-loc {

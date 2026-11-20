@@ -45,7 +45,7 @@ Usage:
   fidibaku runbook [output.html] [-o <output.html>] [--copy-only] [--force] [--port <port>] [--no-open] [--no-token]
   fidibaku example runbook [output.html] [-o <output.html>] [--copy-only] [--force] [--port <port>] [--no-open] [--no-token]
   fidibaku review <file.html|localhost-url> [--port <port>] [--no-open] [--no-token] [--comments <sidecar-base.html>]
-  fidibaku serve <file.html> [--port <port>] [--open] [--no-open] [--no-token]
+  fidibaku serve <file.html> [--port <port>] [--open] [--no-open] [--no-token] [--comments <sidecar-base.html>]
   fidibaku proxy <localhost-url> [--port <port>] [--open] [--no-open] [--no-token] [--comments <sidecar-base.html>]
   fidibaku bundle <file.html> [-o <out.html>]
   fidibaku export <file.html|localhost-url> [--json] [--comments <sidecar-base.html>]
@@ -102,7 +102,8 @@ function requireFile(file) {
 
 function requireCommentTarget(value, commentsPath) {
   if (isHttpUrl(value)) return path.resolve(commentsPath || urlSidecarTarget(value, process.cwd()));
-  return requireFile(value);
+  const file = requireFile(value);
+  return commentsPath ? path.resolve(commentsPath) : file;
 }
 
 function inlineBundle(file, output) {
@@ -211,6 +212,7 @@ function main() {
     const file = requireFile(args._[0]);
     serve({
       file,
+      comments: args.comments,
       port: args.port,
       open: args.open === undefined ? true : args.open,
       noToken: !!args.noToken
@@ -262,6 +264,7 @@ function main() {
     }
     serve({
       file: requireFile(target),
+      comments: args.comments,
       port: args.port,
       open: args.open === undefined ? true : args.open,
       noToken: !!args.noToken

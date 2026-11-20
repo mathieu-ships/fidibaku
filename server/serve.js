@@ -169,6 +169,8 @@ function createReviewServer(options) {
   const targetFile = path.resolve(options.targetFile);
   const targetDir = options.targetDir ? path.resolve(options.targetDir) : path.dirname(targetFile);
   const targetName = options.targetName || path.basename(targetFile);
+  // Comments normally sit beside the target; `sidecarFile` redirects them.
+  const sidecarFile = path.resolve(options.sidecarFile || targetFile);
   const token = options.noToken ? "" : (options.token || createToken());
 
   const server = http.createServer(async (req, res) => {
@@ -224,14 +226,14 @@ function createReviewServer(options) {
         }
 
         if (url.pathname === "/__review/comments" && req.method === "GET") {
-          sendJson(res, 200, mapToDocument(targetFile, readCommentMap(targetFile)));
+          sendJson(res, 200, mapToDocument(sidecarFile, readCommentMap(sidecarFile)));
           return;
         }
 
         if (url.pathname === "/__review/comments" && req.method === "PUT") {
           const payload = JSON.parse(await readBody(req) || "{}");
           const map = Array.isArray(payload.comments) ? payload.comments : payload;
-          const doc = writeSidecars(targetFile, map);
+          const doc = writeSidecars(sidecarFile, map);
           sendJson(res, 200, { ok: true, ...doc });
           return;
         }
@@ -251,7 +253,7 @@ function createReviewServer(options) {
     targetDir,
     targetName,
     token,
-    sidecars: sidecarPaths(targetFile)
+    sidecars: sidecarPaths(sidecarFile)
   };
 
   return server;
@@ -270,6 +272,7 @@ function createFileServer(options) {
     targetFile,
     targetDir,
     targetName,
+    sidecarFile: options.comments ? path.resolve(options.comments) : targetFile,
     handlePage: async (req, res, url, context) => {
       let filePath = url.pathname === "/" ? targetFile : safeJoin(targetDir, url.pathname);
       if (fs.existsSync(filePath) && fs.statSync(filePath).isDirectory()) {
