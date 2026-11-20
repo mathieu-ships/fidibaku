@@ -60,6 +60,81 @@
     return el.dataset.reviewLabel || el.dataset.clabel || itemId(el);
   }
 
+  // ---- Views -------------------------------------------------------------
+  // A "view" is what the reviewer is looking at when they comment. Single-file
+  // decks and SPAs re-render the same elements (#caption, main, header) for
+  // every route, so a comment is scoped to the view it was made on and only
+  // marked there. Default: pathname + search + hash, with Fidibaku's own
+  // session token removed. Pages can name their views instead (first match):
+  //   window.fidibakuView = "slide-3"   (or a function returning the name)
+  //   <html data-fidibaku-view="slide-3">
+  //   <meta name="fidibaku-view" content="slide-3">
+
+  function reviewToken() {
+    return (window.__REVIEW_SERVER__ && window.__REVIEW_SERVER__.token) || "";
+  }
+
+  function cleanSearch(search) {
+    var raw = String(search || "").replace(/^\?/, "");
+    if (!raw) return "";
+    var token = reviewToken();
+    var kept = raw.split("&").filter(function (part) {
+      if (!part) return false;
+      if (!token || part.split("=")[0] !== "t") return true;
+      var value = part.slice(2);
+      try { value = decodeURIComponent(value.replace(/\+/g, " ")); } catch (err) {}
+      return value !== token;
+    });
+    return kept.length ? "?" + kept.join("&") : "";
+  }
+
+  function currentUrl() {
+    return location.pathname + cleanSearch(location.search) + location.hash;
+  }
+
+  function viewOverride() {
+    var value = window.fidibakuView;
+    if (typeof value === "function") {
+      try { value = value(); } catch (err) { value = null; }
+    }
+    if (value !== null && value !== undefined && String(value).trim()) return String(value).trim();
+    var root = document.documentElement;
+    var attr = root && root.getAttribute("data-fidibaku-view");
+    if (attr && attr.trim()) return attr.trim();
+    var meta = document.querySelector('meta[name="fidibaku-view"]');
+    var content = meta && meta.getAttribute("content");
+    if (content && content.trim()) return content.trim();
+    return "";
+  }
+
+  function currentView() {
+    return viewOverride() || currentUrl();
+  }
+
+  function commentView(c) {
+    return c && typeof c.view === "string" && c.view ? c.view : "";
+  }
+
+  function commentAnchor(c) {
+    return (c && c.anchor) || (c && c.id) || "";
+  }
+
+  // Comments saved before views existed have no view and show on every view.
+  function visibleIn(c, view) {
+    var v = commentView(c);
+    return !v || v === view;
+  }
+
+  function viewKey(anchor, view) {
+    return anchor + "@" + hashString(view);
+  }
+
+  function compareViews(a, b) {
+    a = String(a);
+    b = String(b);
+    return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }) || (a < b ? -1 : a > b ? 1 : 0);
+  }
+
   function textSummary(el, fallback) {
     var text = String(el.innerText || el.textContent || "").replace(/\s+/g, " ").trim();
     if (!text) return fallback;
@@ -104,17 +179,23 @@
     return "Auto";
   }
 
+  function ownTitle(value) {
+    value = String(value || "");
+    return value.indexOf("Comment: ") === 0 || value.indexOf("Resolved comment: ") === 0;
+  }
+
   function autoLabel(el) {
-    var explicit = el.getAttribute("aria-label") || el.getAttribute("title");
+    var title = el.getAttribute("title");
+    var explicit = el.getAttribute("aria-label") || (ownTitle(title) ? "" : title);
     if (explicit) return explicit;
     return textSummary(el, el.tagName.toLowerCase());
   }
 
-  function isAutoCandidate(el) {
+  function isAutoCandidate(el, alreadyAuto) {
     if (!el || el.nodeType !== 1) return false;
     if (el.closest(REVIEW_UI_SELECTOR)) return false;
     if (el.matches("script,style,link,meta,template,br,hr")) return false;
-    if (el.matches(SELECTOR)) return false;
+    if (!alreadyAuto && el.matches(SELECTOR)) return false;
     var rect = el.getBoundingClientRect();
     if (rect.width < 12 || rect.height < 10) return false;
     var text = String(el.innerText || el.textContent || "").replace(/\s+/g, " ").trim();
@@ -127,27 +208,61 @@
     return false;
   }
 
+  function autoId(el) {
+    var tag = el.tagName.toLowerCase();
+    var text = textSummary(el, tag);
+    return "auto:" + tag + ":" + hashString(tag + "|" + elementPath(el) + "|" + text);
+  }
+
+  function clearMarker(el) {
+    el.classList.remove("has-review-comment", "has-comment");
+    delete el.dataset.reviewStatus;
+    if (ownTitle(el.title)) el.removeAttribute("title");
+  }
+
   function ensureAutoAnchor(el) {
     if (!el || !isAutoCandidate(el)) return null;
     if (itemId(el)) return el;
-    var tag = el.tagName.toLowerCase();
-    var text = textSummary(el, tag);
-    var hash = hashString(tag + "|" + elementPath(el) + "|" + text);
-    el.dataset.reviewId = "auto:" + tag + ":" + hash;
+    el.dataset.reviewId = autoId(el);
     el.dataset.reviewGroup = autoGroup(el);
     el.dataset.reviewLabel = autoLabel(el);
     el.dataset.reviewAuto = "true";
     return el;
   }
 
+  // Auto IDs are derived from tag, DOM path and text. When a page re-renders an
+  // element in place (a deck swapping #caption text per slide), re-derive the
+  // ID so it matches what a fresh load of that view would compute. Otherwise a
+  // comment made after navigating would carry the previous view's ID and be
+  // orphaned on reload.
+  function refreshAutoAnchor(el) {
+    if (!el || el.dataset.reviewAuto !== "true") return el;
+    if (!isAutoCandidate(el, true)) {
+      clearMarker(el);
+      delete el.dataset.reviewId;
+      delete el.dataset.reviewGroup;
+      delete el.dataset.reviewLabel;
+      delete el.dataset.reviewAuto;
+      return null;
+    }
+    var next = autoId(el);
+    if (next !== el.dataset.reviewId) {
+      el.dataset.reviewId = next;
+      el.dataset.reviewGroup = autoGroup(el);
+      el.dataset.reviewLabel = autoLabel(el);
+    }
+    return el;
+  }
+
   function autoInstrument(root) {
     var scope = root && root.querySelectorAll ? root : document;
+    scope.querySelectorAll("[data-review-auto='true']").forEach(refreshAutoAnchor);
     scope.querySelectorAll(AUTO_SELECTOR).forEach(ensureAutoAnchor);
   }
 
   function findReviewTarget(target) {
     var el = target && target.closest ? target.closest(SELECTOR) : null;
-    if (el && !el.closest(REVIEW_UI_SELECTOR)) return el;
+    if (el && !el.closest(REVIEW_UI_SELECTOR) && refreshAutoAnchor(el)) return el;
 
     var cur = target && target.nodeType === 1 ? target : target.parentElement;
     while (cur && cur !== document.documentElement) {
@@ -158,8 +273,20 @@
     return null;
   }
 
+  function commentIds() {
+    return Object.keys(comments).filter(function (id) { return comments[id] && comments[id].text; });
+  }
+
   function commentCount() {
-    return Object.keys(comments).filter(function (id) { return comments[id] && comments[id].text; }).length;
+    return commentIds().length;
+  }
+
+  function viewCount(view) {
+    return commentIds().filter(function (id) { return visibleIn(comments[id], view); }).length;
+  }
+
+  function optionalString(value) {
+    return typeof value === "string" && value ? value : null;
   }
 
   function normalizeMap(map) {
@@ -168,7 +295,7 @@
       var c = map[id] || {};
       var text = String(c.text || "").trim();
       if (!id || !text) return;
-      normalized[id] = {
+      var item = {
         id: id,
         group: c.group || "Ungrouped",
         label: c.label || id,
@@ -178,6 +305,11 @@
         updatedAt: c.updatedAt || nowIso(),
         reply: c.reply || null
       };
+      ["anchor", "view", "url"].forEach(function (key) {
+        var value = optionalString(c[key]);
+        if (value) item[key] = value;
+      });
+      normalized[id] = item;
     });
     return normalized;
   }
@@ -235,23 +367,59 @@
     out += "Open: " + open + " / Resolved: " + items.filter(function (c) { return c.status === "resolved"; }).length + " / Won't fix: " + items.filter(function (c) { return c.status === "wontfix"; }).length + "\n";
     if (!items.length) return out + "\nNo comments.\n";
 
-    var groups = {};
-    items.forEach(function (c) {
-      groups[c.group] = groups[c.group] || [];
-      groups[c.group].push(c);
-    });
-    Object.keys(groups).forEach(function (group) {
-      out += "\n## " + group + "\n";
-      groups[group].forEach(function (c) {
-        out += "- [" + c.status + "] **" + c.label + "** (" + c.id + "):\n";
-        out += markdownFence(c.text, "  ");
-        if (c.reply && c.reply.text) {
-          out += "  - Reply:\n";
-          out += markdownFence(c.reply.text, "    ");
+    function renderGroups(list, level) {
+      var groups = {};
+      var order = [];
+      list.forEach(function (c) {
+        if (!groups[c.group]) {
+          groups[c.group] = [];
+          order.push(c.group);
         }
+        groups[c.group].push(c);
       });
+      order.forEach(function (group) {
+        out += "\n" + level + " " + group + "\n";
+        groups[group].forEach(function (c) {
+          out += "- [" + c.status + "] **" + c.label + "** (" + c.id + "):\n";
+          out += markdownFence(c.text, "  ");
+          if (c.reply && c.reply.text) {
+            out += "  - Reply:\n";
+            out += markdownFence(c.reply.text, "    ");
+          }
+        });
+      });
+    }
+
+    if (!items.some(commentView)) {
+      renderGroups(items, "##");
+      return out;
+    }
+    groupByView(items).forEach(function (bucket) {
+      out += "\n## " + viewHeading(bucket.view, bucket.items.length) + "\n";
+      renderGroups(bucket.items, "###");
     });
     return out;
+  }
+
+  // Comments grouped by view: "all views" (pre-view comments) first, then views
+  // in natural order so a deck reads #1.1, #1.2, #2.1, ... #10.1.
+  function groupByView(items) {
+    var buckets = {};
+    items.forEach(function (c) {
+      var view = commentView(c);
+      buckets[view] = buckets[view] || [];
+      buckets[view].push(c);
+    });
+    return Object.keys(buckets).sort(function (a, b) {
+      if (!a) return -1;
+      if (!b) return 1;
+      return compareViews(a, b);
+    }).map(function (view) { return { view: view, items: buckets[view] }; });
+  }
+
+  function viewHeading(view, count) {
+    var noun = count === 1 ? " comment" : " comments";
+    return (view ? "View: `" + view.replace(/`/g, "'") + "`" : "All views") + " (" + count + noun + ")";
   }
 
   function ensureScaffold() {
@@ -263,7 +431,7 @@
       '<div class="cmodal" id="cModal"><div class="cmwrap">',
       '<span class="ctick tl"></span><span class="ctick tr"></span><span class="ctick bl"></span><span class="ctick br"></span>',
       '<div class="cmhead"><span class="t">Comments</span><button class="cmx" id="cClose">esc</button></div>',
-      '<div class="cmbody"><p>Right-click any marked element to add or edit a comment. Comments autosave when a file or server adapter is connected.</p><div id="cList"></div><details class="cmd-details"><summary>Show markdown</summary><textarea id="cMd" readonly></textarea></details></div>',
+      '<div class="cmbody"><p>Right-click any marked element to add or edit a comment. Each comment belongs to the view it was made on; click one to jump to it. Comments autosave when a file or server adapter is connected.</p><div id="cList"></div><details class="cmd-details"><summary>Show markdown</summary><textarea id="cMd" readonly></textarea></details></div>',
       '<div class="cmfoot" style="justify-content:space-between"><span class="as-status" id="asStatus"><span class="d"></span>Autosave: local only</span><button class="cmbtn" id="asConnect">Connect file</button></div>',
       '<div class="cmfoot"><button class="cmbtn ghost" id="cCopy">Copy markdown</button><button class="cmbtn ghost" id="cDownload">Download .md</button><button class="cmbtn ghost" id="cClear">Clear all</button></div>',
       '</div></div>',
@@ -279,20 +447,47 @@
     return comments[id] && comments[id].text ? comments[id].text : "";
   }
 
-  function setC(id, group, label, text) {
+  // Which comment a right-click on `el` edits. A pre-view comment on the same
+  // anchor keeps today's behaviour (edited in place, shown on every view);
+  // otherwise the comment belongs to the current view.
+  function commentTarget(el) {
+    var anchor = itemId(el);
+    var legacy = comments[anchor];
+    var base = { anchor: anchor, group: itemGroup(el), label: itemLabel(el) };
+    if (legacy && legacy.text && !commentView(legacy)) {
+      base.key = anchor;
+      return base;
+    }
+    var view = currentView();
+    base.key = viewKey(anchor, view);
+    base.view = view;
+    base.url = currentUrl();
+    return base;
+  }
+
+  function setC(target, text) {
+    var id = target.key;
     var previous = comments[id] || {};
     var trimmed = String(text || "").trim();
     if (trimmed) {
-      comments[id] = {
+      var next = {
         id: id,
-        group: group || previous.group || "Ungrouped",
-        label: label || previous.label || id,
+        group: target.group || previous.group || "Ungrouped",
+        label: target.label || previous.label || id,
         text: trimmed,
         status: previous.status || "open",
         createdAt: previous.createdAt || nowIso(),
         updatedAt: nowIso(),
         reply: previous.reply || null
       };
+      var view = target.view || previous.view;
+      if (view) {
+        next.anchor = target.anchor || previous.anchor || id;
+        next.view = view;
+        next.url = target.url || previous.url || null;
+        if (!next.url) delete next.url;
+      }
+      comments[id] = next;
     } else {
       delete comments[id];
     }
@@ -302,32 +497,44 @@
 
   function updateFab() {
     if (!$("cCount")) return;
-    var n = commentCount();
-    $("cCount").textContent = n;
-    $("cFab").classList.toggle("empty", n === 0);
+    var total = commentCount();
+    var here = viewCount(currentView());
+    var label = here === total ? String(total) : here + "/" + total;
+    if ($("cCount").textContent !== label) $("cCount").textContent = label;
+    $("cFab").classList.toggle("empty", here === 0);
+    var hint = here + " on this view, " + total + " in total";
+    if ($("cFab").title !== hint) $("cFab").title = hint;
   }
 
   function markComments() {
     autoInstrument(document);
-    document.querySelectorAll(SELECTOR).forEach(function (el) {
-      var id = itemId(el);
+    var view = currentView();
+    var byAnchor = {};
+    commentIds().forEach(function (id) {
       var c = comments[id];
-      var has = !!(c && c.text);
-      el.classList.toggle("has-review-comment", has);
-      el.classList.toggle("has-comment", has);
-      if (has) {
-        el.dataset.reviewStatus = c.status || "open";
-        el.title = (c.status === "resolved" ? "Resolved comment: " : "Comment: ") + c.text;
-      } else {
-        delete el.dataset.reviewStatus;
-        if ((el.title || "").startsWith("Comment: ") || (el.title || "").startsWith("Resolved comment: ")) el.removeAttribute("title");
+      if (!visibleIn(c, view)) return;
+      var anchor = commentAnchor(c);
+      (byAnchor[anchor] = byAnchor[anchor] || []).push(c);
+    });
+    document.querySelectorAll(SELECTOR).forEach(function (el) {
+      if (el.closest(REVIEW_UI_SELECTOR)) return;
+      var list = byAnchor[itemId(el)];
+      if (!list || !list.length) {
+        clearMarker(el);
+        return;
       }
+      // View-scoped comments first, then any pre-view comment on the anchor.
+      list.sort(function (a, b) { return (commentView(a) ? 0 : 1) - (commentView(b) ? 0 : 1); });
+      var primary = list.filter(function (c) { return (c.status || "open") === "open"; })[0] || list[0];
+      el.classList.add("has-review-comment", "has-comment");
+      el.dataset.reviewStatus = primary.status || "open";
+      el.title = (primary.status === "resolved" ? "Resolved comment: " : "Comment: ") + list.map(function (c) { return c.text; }).join("\n\n");
     });
     updateFab();
   }
 
   function renderList() {
-    var ids = Object.keys(comments).filter(function (id) { return comments[id] && comments[id].text; }).sort();
+    var ids = commentIds().sort();
     if (!ids.length) {
       $("cList").innerHTML = '<p>No comments yet. Right-click a marked element to add one.</p>';
       return;
@@ -336,16 +543,110 @@
     autoInstrument(document);
     var anchored = {};
     document.querySelectorAll(SELECTOR).forEach(function (el) { anchored[itemId(el)] = true; });
+    var view = currentView();
 
-    $("cList").innerHTML = ids.map(function (id) {
-      var c = comments[id];
-      var orphan = anchored[id] ? "" : " / orphaned";
-      var reply = c.reply && c.reply.text ? '<div class="cl-reply">Reply: ' + escHtml(c.reply.text) + '</div>' : "";
-      return '<div class="cl-item"><div class="cl-main"><div class="cl-loc">' +
-        escHtml(c.group) + ' / ' + escHtml(c.label) +
-        '<span class="cl-status">[' + escHtml(c.status || "open") + orphan + ']</span></div><div class="cl-txt">' +
-        escHtml(c.text) + '</div>' + reply + '</div><button class="cl-del" data-del="' + escHtml(id) + '">remove</button></div>';
+    $("cList").innerHTML = groupByView(ids.map(function (id) { return comments[id]; })).map(function (bucket) {
+      var here = bucket.view === view;
+      var heading = (bucket.view ? escHtml(bucket.view) : "All views") +
+        ' <span class="cl-count">' + bucket.items.length + '</span>' +
+        (here ? ' <span class="cl-here">this view</span>' : "");
+      return '<div class="cl-view' + (here ? " current" : "") + '" data-view="' + escHtml(bucket.view) + '">' + heading + '</div>' +
+        bucket.items.map(function (c) {
+          // Orphaned only makes sense where the comment should be visible.
+          var orphan = visibleIn(c, view) && !anchored[commentAnchor(c)] ? " / orphaned" : "";
+          var reply = c.reply && c.reply.text ? '<div class="cl-reply">Reply: ' + escHtml(c.reply.text) + '</div>' : "";
+          return '<div class="cl-item" data-open="' + escHtml(c.id) + '"><div class="cl-main"><div class="cl-loc">' +
+            escHtml(c.group) + ' / ' + escHtml(c.label) +
+            '<span class="cl-status">[' + escHtml(c.status || "open") + orphan + ']</span></div><div class="cl-txt">' +
+            escHtml(c.text) + '</div>' + reply + '</div><button class="cl-del" data-del="' + escHtml(c.id) + '">remove</button></div>';
+        }).join("");
     }).join("");
+  }
+
+  function anchorElement(anchor) {
+    if (!anchor) return null;
+    autoInstrument(document);
+    var found = null;
+    document.querySelectorAll(SELECTOR).forEach(function (el) {
+      if (!found && itemId(el) === anchor && !el.closest(REVIEW_UI_SELECTOR)) found = el;
+    });
+    return found;
+  }
+
+  function flash(el) {
+    if (el.scrollIntoView) el.scrollIntoView({ block: "center", behavior: "smooth" });
+    el.classList.add("review-flash");
+    setTimeout(function () { el.classList.remove("review-flash"); }, 1800);
+  }
+
+  // Wait for the page to render the view, then scroll to and flash the anchor.
+  function highlightAnchor(anchor, timeoutMs) {
+    return new Promise(function (resolve) {
+      var deadline = Date.now() + (timeoutMs || 0);
+      (function attempt() {
+        markComments();
+        var el = anchorElement(anchor);
+        if (el) {
+          flash(el);
+          resolve(true);
+        } else if (Date.now() < deadline) {
+          setTimeout(attempt, 100);
+        } else {
+          resolve(false);
+        }
+      })();
+    });
+  }
+
+  function pendingFocusKey() {
+    return "fidibaku:focus:" + storageKey();
+  }
+
+  // Navigate to a comment's view. Hash views set the hash; path views use
+  // history.pushState plus a popstate event so client-side routers render it.
+  // If nothing renders the anchor (a multi-page site), fall back to a full
+  // load and finish the highlight after it.
+  function navigateTo(url, anchor) {
+    var target = new URL(url, location.href);
+    var token = reviewToken();
+    var here = new URL(location.href);
+    if (token && here.searchParams.get("t") === token && !target.searchParams.has("t")) target.searchParams.set("t", token);
+    var samePage = target.pathname === here.pathname && cleanSearch(target.search) === cleanSearch(here.search);
+    if (samePage) {
+      if (target.hash !== here.hash) location.hash = target.hash;
+      return highlightAnchor(anchor, 3000);
+    }
+    var next = target.pathname + target.search + target.hash;
+    history.pushState(history.state, "", next);
+    try {
+      window.dispatchEvent(new PopStateEvent("popstate", { state: history.state }));
+    } catch (err) {}
+    return highlightAnchor(anchor, 1500).then(function (found) {
+      if (found) return true;
+      try { sessionStorage.setItem(pendingFocusKey(), anchor); } catch (err) {}
+      location.assign(target.toString());
+      return false;
+    });
+  }
+
+  function focusComment(id) {
+    var c = comments[id];
+    if (!c) return Promise.resolve(false);
+    closeModal();
+    var anchor = commentAnchor(c);
+    if (visibleIn(c, currentView())) return highlightAnchor(anchor, 1000);
+    var url = c.url || (commentView(c).charAt(0) === "/" ? commentView(c) : "");
+    if (!url) return highlightAnchor(anchor, 1000);
+    return navigateTo(url, anchor);
+  }
+
+  function resumePendingFocus() {
+    var anchor = null;
+    try {
+      anchor = sessionStorage.getItem(pendingFocusKey());
+      if (anchor) sessionStorage.removeItem(pendingFocusKey());
+    } catch (err) {}
+    if (anchor) highlightAnchor(anchor, 3000);
   }
 
   function openModal() {
@@ -360,11 +661,14 @@
   }
 
   var popEl = null;
+  var popTarget = null;
   function openPop(el, x, y) {
     if (!$("cPop")) return;
     popEl = el;
+    // Capture the anchor and view now: the page may re-render while typing.
+    popTarget = commentTarget(el);
     $("cpopLabel").textContent = (itemGroup(el) ? itemGroup(el) + " · " : "") + itemLabel(el);
-    $("cpopTa").value = getC(itemId(el));
+    $("cpopTa").value = getC(popTarget.key);
     $("cPop").classList.add("open");
     var w = 300;
     var ph = $("cPop").offsetHeight || 180;
@@ -379,6 +683,7 @@
     var pop = $("cPop");
     if (pop) pop.classList.remove("open");
     popEl = null;
+    popTarget = null;
   }
 
   function setStatus(className, html, connectVisible, connectText, fileOn) {
@@ -534,23 +839,23 @@
   function bindScaffoldEvents() {
     if (!$("cpopTa")) return;
     $("cpopTa").addEventListener("input", function () {
-      if (!popEl) return;
-      setC(itemId(popEl), itemGroup(popEl), itemLabel(popEl), $("cpopTa").value);
+      if (!popTarget) return;
+      setC(popTarget, $("cpopTa").value);
       markComments();
     });
     $("cpopTa").addEventListener("keydown", function (event) {
       if (event.key !== "Enter" || event.shiftKey) return;
       event.preventDefault();
-      if (popEl) {
-        setC(itemId(popEl), itemGroup(popEl), itemLabel(popEl), $("cpopTa").value);
+      if (popTarget) {
+        setC(popTarget, $("cpopTa").value);
         markComments();
       }
       closePop();
     });
     $("cpopDone").addEventListener("click", closePop);
     $("cpopDel").addEventListener("click", function () {
-      if (!popEl) return;
-      setC(itemId(popEl), itemGroup(popEl), itemLabel(popEl), "");
+      if (!popTarget) return;
+      setC(popTarget, "");
       $("cpopTa").value = "";
       markComments();
       closePop();
@@ -562,7 +867,12 @@
     });
     $("cList").addEventListener("click", function (event) {
       var button = event.target.closest("[data-del]");
-      if (!button) return;
+      if (!button) {
+        var item = event.target.closest("[data-open]");
+        var selection = window.getSelection && String(window.getSelection() || "");
+        if (item && !selection) focusComment(item.dataset.open);
+        return;
+      }
       delete comments[button.dataset.del];
       writeLocal(comments);
       scheduleSave();
@@ -645,6 +955,13 @@
   // root goes missing and re-apply anchors/markers. Anchoring also happens
   // lazily on right-click (findReviewTarget), so commenting works even between
   // re-renders.
+  function remark() {
+    ensureScaffold();
+    markComments();
+    var modal = $("cModal");
+    if (modal && modal.classList.contains("open")) renderList();
+  }
+
   function observeScaffold() {
     if (typeof MutationObserver === "undefined" || !document.body) return;
     var scheduled = false;
@@ -657,7 +974,41 @@
         markComments();
       }, 300);
     });
-    observer.observe(document.documentElement, { childList: true, subtree: true });
+    // `data-fidibaku-view` and `content` catch view overrides changing in place.
+    observer.observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["data-fidibaku-view", "content"]
+    });
+  }
+
+  // Re-evaluate which comments to mark whenever the view can change: hash and
+  // history navigation (including client-side routers calling pushState or
+  // replaceState) and an explicit `fidibaku:viewchange` event from the page.
+  // DOM re-renders are covered by observeScaffold().
+  function watchLocation() {
+    var onChange = function () {
+      // Run after the page's own listeners have re-rendered the view.
+      setTimeout(remark, 0);
+      setTimeout(remark, 80);
+    };
+    if (!window.__fidibakuHistoryPatched && window.history) {
+      window.__fidibakuHistoryPatched = true;
+      ["pushState", "replaceState"].forEach(function (name) {
+        var original = history[name];
+        if (typeof original !== "function") return;
+        history[name] = function () {
+          var result = original.apply(this, arguments);
+          try { window.dispatchEvent(new Event("fidibaku:locationchange")); } catch (err) {}
+          return result;
+        };
+      });
+    }
+    window.addEventListener("hashchange", onChange);
+    window.addEventListener("popstate", onChange);
+    window.addEventListener("fidibaku:locationchange", onChange);
+    window.addEventListener("fidibaku:viewchange", onChange);
   }
 
   function init() {
@@ -674,13 +1025,17 @@
         markComments();
         updateAdapterUI();
         if (Object.keys(comments).length > serverCount) scheduleSave();
+        resumePendingFocus();
       }).catch(function () {
         setStatus("err", "Autosave: server unavailable", false, "", false);
       });
+    } else {
+      resumePendingFocus();
     }
     markComments();
     initFileHandle();
     observeScaffold();
+    watchLocation();
   }
 
   // Init once the DOM exists. A host that renders its own DOM later (SSR

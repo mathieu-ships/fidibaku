@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Fixture deck</title>
+<style>
+  body { font: 16px/1.4 sans-serif; margin: 0; }
+  main { display: block; padding: 20px; }
+  header, footer { padding: 10px 0; }
+  h1 { font-size: 28px; margin: 12px 0; }
+  #visual { min-height: 80px; }
+</style>
+</head>
+<body>
+<!--
+  A single-file deck in the shape that broke view-less comments: every slide is
+  a hash route (#0 cover, #2.2, ...) and the same elements (#caption,
+  #takeaway, #visual, main, header) are re-rendered in place on navigation.
+  Paths under /list/ are client-side routes reached with history.pushState.
+-->
+<main id="stage">
+  <header><strong>Fixture deck</strong> <nav><a href="#1.1">One</a> <a href="#2.2">Two</a> <a href="#3.1">Three</a> <a href="#4.1">Four</a></nav></header>
+  <article id="panel"><p id="takeaway"></p><div id="visual"></div></article>
+  <section id="intro"><h1 id="caption"></h1><p id="sub"></p></section>
+  <footer data-review-id="deck:footer" data-review-group="Deck" data-review-label="Footer">Fixture deck footer, the same on every slide</footer>
+</main>
+<script>
+  var slides = {
+    "0": ["Latest thinking, and why", "Cover subtitle for the fixture deck", "Cover visual block"],
+    "1.1": ["Robots follow the path of LLMs", "Takeaway for slide one point one", "Chart for slide one point one"],
+    "2.2": ["The brain is the number one blocker", "Takeaway for slide two point two", "Chart for slide two point two"],
+    "3.1": ["Data unblocks the brain", "Takeaway for slide three point one", "Chart for slide three point one"],
+    "4.1": ["Bridges between sim and real", "Takeaway for slide four point one", "Chart for slide four point one"],
+    "/list/2": ["Client-side list route two", "Takeaway for the list route two", "Rows for the list route two"],
+    "/list/3": ["Client-side list route three", "Takeaway for the list route three", "Rows for the list route three"]
+  };
+  function render() {
+    var key = location.pathname !== "/" ? location.pathname : (location.hash.slice(1) || "0");
+    var slide = slides[key] || slides["0"];
+    document.getElementById("caption").textContent = slide[0];
+    document.getElementById("takeaway").textContent = slide[1];
+    document.getElementById("visual").innerHTML = "<div class=\"chart\">" + slide[2] + "</div>";
+  }
+  addEventListener("hashchange", render);
+  addEventListener("popstate", render);
+  window.goPath = function (path) { history.pushState(null, "", path + location.search); render(); };
+  render();
+</script>
+</body>
+</html>

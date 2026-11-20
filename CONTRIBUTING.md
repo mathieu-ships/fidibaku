@@ -8,6 +8,13 @@ Thanks for improving Fidibaku.
 npm install
 npm run check
 npm run smoke
+npm test
+```
+
+`npm test` drives the review client in headless Chromium through `playwright-core` (a dev dependency only). The first time, install its browser:
+
+```sh
+npx playwright-core install chromium-headless-shell
 ```
 
 To try the package exactly as a user would:

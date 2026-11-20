@@ -84,6 +84,8 @@ Landing pages, product interfaces, visual QA, HTML prototypes, generated reports
 
 **Right-click → comment → agent acts.**
 
+Single-file decks and single-page apps work too: each comment stays on the slide, route or hash it was made on. See [views](docs/architecture.md#views).
+
 <br>
 
 <p align="center">

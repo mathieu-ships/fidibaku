@@ -23,6 +23,10 @@ Explicit anchors use:
 
 The client also supports the older `data-cid`, `data-cgroup`, and `data-clabel` names for compatibility. When explicit anchors are absent, the client creates runtime fallback anchors for common reviewable HTML elements such as headings, paragraphs, sections, cards, lists, and table cells.
 
+## Views
+
+Each new comment records the view it was made on (`pathname + search + hash` without the session token, or a page override: `window.fidibakuView`, `data-fidibaku-view` on `<html>`, `<meta name="fidibaku-view">`). Markers only show on the matching view; comments without a view predate views and show everywhere. See [architecture.md](architecture.md#views).
+
 ## Persistence
 
 - JSON sidecar: authoritative source of truth.
@@ -45,6 +49,7 @@ Current local verification:
 
 - CLI syntax checks through `npm run check`.
 - CLI smoke path through `npm run smoke`.
+- `npm test`: sidecar/CLI tests and headless Chromium tests of view scoping (recording, filtering, hash/pushState/multi-page navigation, overrides, pre-view comments).
 - Proxy integration: injected HTML, stripped content-security-policy response headers, stripped review token before upstream forwarding, proxied static assets, rewrote upstream redirects, wrote nested sidecars.
 - Attach integration: allowed-origin CORS, blocked-origin rejection, preflight, attach script generation, sidecar write, and Vite adapter HTML injection.
 - Package dry-run with `npm pack --dry-run`.

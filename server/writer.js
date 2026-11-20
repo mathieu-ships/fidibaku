@@ -5,13 +5,18 @@ const path = require("path");
 
 const VERSION = 1;
 const VALID_STATUSES = new Set(["open", "resolved", "wontfix"]);
+const VIEW_FIELDS = ["anchor", "view", "url"];
 
 function nowIso() {
   return new Date().toISOString();
 }
 
 function sidecarPaths(targetFile) {
-  const parsed = path.parse(path.resolve(targetFile));
+  const resolved = path.resolve(targetFile);
+  // Accept the sidecar itself (`page.comments.json` / `.md`) as well as the
+  // page or a sidecar base name (`page.html`).
+  const sidecar = resolved.match(/^(.*)\.comments\.(json|md)$/i);
+  const parsed = path.parse(sidecar ? `${sidecar[1]}.html` : resolved);
   const base = path.join(parsed.dir, parsed.name);
   return {
     json: `${base}.comments.json`,
@@ -53,7 +58,7 @@ function normalizeComment(id, raw, previous) {
     reply = null;
   }
 
-  return {
+  const comment = {
     id,
     group: String(raw.group || prev.group || "Ungrouped"),
     label: String(raw.label || prev.label || id),
@@ -63,6 +68,16 @@ function normalizeComment(id, raw, previous) {
     updatedAt: raw.updatedAt || nowIso(),
     reply
   };
+
+  // View scoping (optional): `view` is where the comment shows, `anchor` the
+  // element it is attached to, `url` where it was made. Comments without a
+  // view predate views and show on every view.
+  for (const key of VIEW_FIELDS) {
+    const value = raw[key] === undefined ? prev[key] : raw[key];
+    if (typeof value === "string" && value) comment[key] = value;
+  }
+
+  return comment;
 }
 
 function commentsArrayToMap(comments) {
@@ -128,27 +143,68 @@ function renderMarkdownFromDocument(doc) {
 
   if (!comments.length) return `${out}\nNo comments.\n`;
 
-  const groups = new Map();
-  for (const comment of comments) {
-    const group = comment.group || "Ungrouped";
-    if (!groups.has(group)) groups.set(group, []);
-    groups.get(group).push(comment);
-  }
-
-  for (const [group, items] of groups) {
-    out += `\n## ${group}\n`;
-    for (const c of items) {
-      const status = c.status || "open";
-      out += `- [${status}] **${c.label || c.id}** (${c.id}):\n`;
-      out += markdownFence(c.text, "  ");
-      if (c.reply && c.reply.text) {
-        out += "  - Reply:\n";
-        out += markdownFence(c.reply.text, "    ");
+  const renderGroups = (items, level) => {
+    const groups = new Map();
+    for (const comment of items) {
+      const group = comment.group || "Ungrouped";
+      if (!groups.has(group)) groups.set(group, []);
+      groups.get(group).push(comment);
+    }
+    for (const [group, list] of groups) {
+      out += `\n${level} ${group}\n`;
+      for (const c of list) {
+        const status = c.status || "open";
+        out += `- [${status}] **${c.label || c.id}** (${c.id}):\n`;
+        out += markdownFence(c.text, "  ");
+        if (c.reply && c.reply.text) {
+          out += "  - Reply:\n";
+          out += markdownFence(c.reply.text, "    ");
+        }
       }
     }
+  };
+
+  // Files with no view-scoped comments keep the original layout.
+  if (!comments.some(commentView)) {
+    renderGroups(comments, "##");
+    return out;
+  }
+
+  for (const bucket of groupByView(comments)) {
+    out += `\n## ${viewHeading(bucket.view, bucket.items.length)}\n`;
+    renderGroups(bucket.items, "###");
   }
 
   return out;
+}
+
+function commentView(comment) {
+  return comment && typeof comment.view === "string" && comment.view ? comment.view : "";
+}
+
+function compareViews(a, b) {
+  a = String(a);
+  b = String(b);
+  return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }) || (a < b ? -1 : a > b ? 1 : 0);
+}
+
+// "All views" (comments saved before views existed) first, then views in
+// natural order so a deck reads #1.1, #1.2, #2.1, ... #10.1.
+function groupByView(comments) {
+  const buckets = new Map();
+  for (const comment of comments) {
+    const view = commentView(comment);
+    if (!buckets.has(view)) buckets.set(view, []);
+    buckets.get(view).push(comment);
+  }
+  return [...buckets.keys()]
+    .sort((a, b) => (!a ? -1 : !b ? 1 : compareViews(a, b)))
+    .map(view => ({ view, items: buckets.get(view) }));
+}
+
+function viewHeading(view, count) {
+  const noun = count === 1 ? "comment" : "comments";
+  return `${view ? `View: \`${view.replace(/`/g, "'")}\`` : "All views"} (${count} ${noun})`;
 }
 
 function writeSidecars(targetFile, inputMap) {
@@ -181,6 +237,8 @@ function resolveComment(targetFile, id, replyText, status) {
 module.exports = {
   VERSION,
   VALID_STATUSES,
+  VIEW_FIELDS,
+  groupByView,
   sidecarPaths,
   normalizeMap,
   mapToDocument,

@@ -21,6 +21,21 @@
           "status": { "enum": ["open", "resolved", "wontfix"] },
           "createdAt": { "type": "string", "format": "date-time" },
           "updatedAt": { "type": "string", "format": "date-time" },
+          "view": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The view the comment belongs to and is shown on: pathname + search + hash by default, or the page's fidibaku-view override. Absent on comments saved before views existed; those show on every view."
+          },
+          "anchor": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The element anchor (data-review-id or auto ID) the comment is attached to. Absent means the id is the anchor."
+          },
+          "url": {
+            "type": "string",
+            "minLength": 1,
+            "description": "pathname + search + hash where the comment was made, used to navigate back to its view."
+          },
           "reply": {
             "anyOf": [
               { "type": "null" },
