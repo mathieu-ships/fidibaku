@@ -7,8 +7,10 @@
 // - a page's own mark: [data-review-id] (not one fidibaku added itself) or [data-cid];
 // - a heading, paragraph, list item, table cell or row, quote, code block or command, caption, summary, link or button
 //   with text;
-// - a picture, figure, SVG or canvas chart, or video, whatever its text (a picture in a figure is the figure);
-// - a section, card, panel, table or other block holding a little text (8 characters or more).
+// - a picture, figure, SVG or canvas chart, video or audio, or a web component (model-viewer, a Lottie player), whatever
+//   its text (a picture in a figure is the figure);
+// - a section, card, panel, table or other block holding a little text (8 characters or more);
+// - a shape drawn in CSS with no words (a bar of a chart, a swatch, an animated card): painted, and 16 x 16 px or more.
 // A link, button, label or bit of code inside running text is the text it sits in; code inside a <pre> is the <pre>.
 // Parts smaller than 12 x 10 px are skipped.
 (function (root, factory) {
@@ -18,12 +20,12 @@
   "use strict";
 
   var EXPLICIT = "[data-review-id]:not([data-review-auto]),[data-cid]";
-  var MEDIA = ["img", "picture", "canvas", "svg", "video"];
+  var MEDIA = ["img", "picture", "canvas", "svg", "video", "audio"];
   var TAGS = [
     "main", "article", "section", "aside", "header", "footer", "nav",
     "h1", "h2", "h3", "h4", "h5", "h6",
     "div", "p", "li", "blockquote", "pre", "figure", "figcaption",
-    "img", "picture", "canvas", "svg", "video",
+    "img", "picture", "canvas", "svg", "video", "audio",
     "table", "caption", "thead", "tbody", "tfoot", "tr", "th", "td",
     "dl", "dt", "dd", "ul", "ol", "details", "summary", "a", "button", "label", "code"
   ];
@@ -34,6 +36,8 @@
   // Running text a link or button can sit in.
   var FLOW = /^(p|li|td|th|dt|dd|h[1-6]|caption|figcaption|blockquote|summary)$/;
   var INLINE = /^(span|b|strong|em|i|u|s|small|mark|code|kbd|sup|sub|abbr|cite|q|time|var|samp|bdi|bdo|font)$/;
+  // Elements that can be a shape drawn in CSS when they hold no words.
+  var DRAWN = /^(div|span|i|b|a|li|section|article|aside|figure|button|label|em|strong|p)$/;
   // Blocks whose bold lead names them (a card's title).
   var NAMED = /^(div|section|article|aside|header|a|details|li)$/;
   var SKIP = /^(script|style|link|meta|template|br|hr|head|title|noscript|html|body)$/;
@@ -78,15 +82,33 @@
     return "auto:" + tag + ":" + hash(tag + "|" + path(el) + "|" + summary(el, 80, tag));
   }
 
+  // A web component (its tag has a dash): model-viewer, a Lottie player, anything with its own shadow DOM.
+  function custom(el) { return tagOf(el).indexOf("-") > 0; }
+  // Painted: a background colour or picture, or a border, so it shows as a shape without any words.
+  function painted(el) {
+    var s = el.ownerDocument.defaultView.getComputedStyle(el);
+    if (s.visibility === "hidden" || Number(s.opacity) === 0) return false;
+    if (s.backgroundImage && s.backgroundImage !== "none") return true;
+    if (!/^(transparent|rgba\(0, 0, 0, 0\))$/.test(s.backgroundColor)) return true;
+    return ["Top", "Right", "Bottom", "Left"].some(function (side) {
+      return parseFloat(s["border" + side + "Width"]) > 0 && s["border" + side + "Style"] !== "none" && !/rgba\(0, 0, 0, 0\)|transparent/.test(s["border" + side + "Color"]);
+    });
+  }
+
   function isCandidate(el) {
     if (!el || el.nodeType !== 1) return false;
     var tag = tagOf(el);
     if (SKIP.test(tag)) return false;
-    if (TAGS.indexOf(tag) < 0 && !el.matches(STYLED)) return false;
+    var listed = TAGS.indexOf(tag) >= 0 || el.matches(STYLED);
+    if (!listed && !custom(el) && !DRAWN.test(tag)) return false;
     var rect = el.getBoundingClientRect();
     if (rect.width < 12 || rect.height < 10) return false;
     if (MEDIA.indexOf(tag) >= 0 || tag === "figure") return true;
+    if (custom(el)) return rect.width >= 24 && rect.height >= 24;
     var length = text(el).length;
+    // A shape drawn in CSS: no words, but painted and big enough to point at.
+    if (!length && DRAWN.test(tag)) return rect.width >= 16 && rect.height >= 16 && !el.querySelector("img,svg,canvas,video") && painted(el);
+    if (!listed) return false;
     return WORDS.test(tag) ? length > 0 : length >= 8;
   }
 
@@ -182,6 +204,17 @@
   }
 
   function fileOf(src) { return String(src || "").split(/[?#]/)[0].split("/").pop(); }
+  function mediaSrc(el) {
+    var source = el.querySelector && el.querySelector("source");
+    return el.getAttribute("src") || el.getAttribute("data") || (source && source.getAttribute("src")) || "";
+  }
+  // Where a video or audio is (1:23), when it has been played or moved on.
+  function moment(el) {
+    var t = Number(el.currentTime) || 0;
+    if (t < 0.5) return "";
+    var m = Math.floor(t / 60), sec = Math.floor(t % 60);
+    return m + ":" + (sec < 10 ? "0" : "") + sec;
+  }
 
   /** What to call a part in a list of comments ("Tomato slicing · D: 1", a picture's alt, a card's title). */
   function label(el, max) {
@@ -211,10 +244,12 @@
       return clip(words ? "Chart: " + words : "Chart", max);
     }
     if (tag === "canvas") return "Chart";
-    if (tag === "video") {
-      var source = el.getAttribute("src") || (el.querySelector("source") && el.querySelector("source").getAttribute("src"));
-      return clip(fileOf(source) || "Video", max);
+    if (tag === "video" || tag === "audio") {
+      var at = moment(el);
+      return clip((fileOf(mediaSrc(el)) || (tag === "video" ? "Video" : "Audio")) + (at ? " at " + at : ""), max);
     }
+    if (custom(el)) return clip(attr(el, "alt") || tag.replace(/-/g, " "), max);
+    if (!text(el)) return "Drawing";
     if (NAMED.test(tag) || el.matches(STYLED)) {
       var lead = el.firstElementChild;
       if (lead && /^(b|strong|h[1-6]|dt|summary)$/.test(tagOf(lead))) {
@@ -234,6 +269,12 @@
     var img = tag === "img" ? el : el.querySelector && el.querySelector("img");
     var src = img && fileOf(img.getAttribute("src"));
     if (src) out.src = src;
+    // A video or audio: its file, and the moment he's at (seconds), so the note can take him back there.
+    var media = tag === "video" || tag === "audio" ? el : el.querySelector && el.querySelector("video,audio");
+    if (media) {
+      if (!out.src && fileOf(mediaSrc(media))) out.src = fileOf(mediaSrc(media));
+      if (Number(media.currentTime) >= 0.5) out.time = Math.round(media.currentTime * 10) / 10;
+    }
     if (tag === "td" || tag === "th") {
       var c = cell(el);
       if (c) { out.row = c.row; out.col = c.col; }

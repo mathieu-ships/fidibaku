@@ -284,7 +284,10 @@ test("every kind of part takes a comment: cells, pictures, figures, charts, code
     ["#inline-code", "p", /^Run npm test/],
     ["#card b", "div", "December kit"],
     ["#button", "button", "Open the review"],
-    ["#lone-button", "button", "Open the bench picture"]
+    ["#lone-button", "button", "Open the bench picture"],
+    ["#bar-a", "div", "Drawing"],
+    ["#custom", "model-thing", "model thing"],
+    ["#video", "video", "Video"]
   ];
   for (const [selector, tag, label] of cases) {
     await s.page.click(selector, { button: "right" });
