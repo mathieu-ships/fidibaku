@@ -90,11 +90,12 @@
     return WORDS.test(tag) ? length > 0 : length >= 8;
   }
 
-  // The block a link or button sits in when it's part of running text, else null.
+  // The block a link or button sits in when it's part of running text, else null (a button alone in its paragraph
+  // is a part of its own).
   function flowHost(el) {
     var up = el.parentElement;
     while (up && INLINE.test(tagOf(up))) up = up.parentElement;
-    return up && FLOW.test(tagOf(up)) && isCandidate(up) ? up : null;
+    return up && FLOW.test(tagOf(up)) && isCandidate(up) && text(up).length > text(el).length ? up : null;
   }
 
   /** The part under `node` (an element or text node), or null. `options.skip(el)` stops at a host's own UI. */
