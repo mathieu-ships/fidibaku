@@ -37,5 +37,14 @@
 <model-thing id="custom" style="display:block;width:120px;height:80px"></model-thing>
 <video id="video" width="200" height="100" style="background:#333"></video>
 <div id="empty-wrapper" style="width:200px;height:40px"></div>
+<p id="live">Live <span id="dot" style="display:inline-block;width:6px;height:6px;border-radius:3px;background:#2f8f4e"></span> 18-day streak, updated every minute</p>
+<card-list id="cards" style="display:block"></card-list>
+<script>
+  customElements.define("card-list", class extends HTMLElement {
+    connectedCallback() {
+      this.attachShadow({ mode: "open" }).innerHTML = '<section><h3 id="first">First card</h3><p>The first card holds enough words.</p></section><section><h3 id="second">Second card heading</h3><p>The second card holds enough words too.</p></section>';
+    }
+  });
+</script>
 </body>
 </html>
