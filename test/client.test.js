@@ -287,7 +287,8 @@ test("every kind of part takes a comment: cells, pictures, figures, charts, code
     ["#lone-button", "button", "Open the bench picture"],
     ["#bar-a", "div", "Drawing"],
     ["#custom", "model-thing", "model thing"],
-    ["#video", "video", "Video"]
+    ["#video", "video", "Video"],
+    ["#dot", "span", "Drawing"]
   ];
   for (const [selector, tag, label] of cases) {
     await s.page.click(selector, { button: "right" });

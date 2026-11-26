@@ -10,7 +10,8 @@
 // - a picture, figure, SVG or canvas chart, video or audio, or a web component (model-viewer, a Lottie player), whatever
 //   its text (a picture in a figure is the figure);
 // - a section, card, panel, table or other block holding a little text (8 characters or more);
-// - a shape drawn in CSS with no words (a bar of a chart, a swatch, an animated card): painted, and 16 x 16 px or more.
+// - a shape drawn in CSS with no words (a bar of a chart, a swatch, a pulsing live dot): painted, and 4 x 4 px or more.
+// Inside an open shadow root (a web component's own parts), the walk goes up through its host.
 // A link, button, label or bit of code inside running text is the text it sits in; code inside a <pre> is the <pre>.
 // Parts smaller than 12 x 10 px are skipped.
 (function (root, factory) {
@@ -102,14 +103,23 @@
     var listed = TAGS.indexOf(tag) >= 0 || el.matches(STYLED);
     if (!listed && !custom(el) && !DRAWN.test(tag)) return false;
     var rect = el.getBoundingClientRect();
+    var length = text(el).length;
+    // A shape drawn in CSS: no words, but painted, however small it is (a 6 px live dot).
+    if (!length && DRAWN.test(tag) && MEDIA.indexOf(tag) < 0 && tag !== "figure") {
+      return rect.width >= 4 && rect.height >= 4 && !el.querySelector("img,svg,canvas,video") && painted(el);
+    }
     if (rect.width < 12 || rect.height < 10) return false;
     if (MEDIA.indexOf(tag) >= 0 || tag === "figure") return true;
     if (custom(el)) return rect.width >= 24 && rect.height >= 24;
-    var length = text(el).length;
-    // A shape drawn in CSS: no words, but painted and big enough to point at.
-    if (!length && DRAWN.test(tag)) return rect.width >= 16 && rect.height >= 16 && !el.querySelector("img,svg,canvas,video") && painted(el);
     if (!listed) return false;
     return WORDS.test(tag) ? length > 0 : length >= 8;
+  }
+
+  // The element above, out of a shadow root into its host.
+  function up(el) {
+    if (el.parentElement) return el.parentElement;
+    var root = el.parentNode;
+    return root && root.host ? root.host : null;
   }
 
   // The block a link or button sits in when it's part of running text, else null (a button alone in its paragraph
@@ -129,7 +139,7 @@
     var marked = el.closest(EXPLICIT);
     if (marked) return marked;
     var doc = el.ownerDocument;
-    for (var cur = el; cur && cur !== doc.body && cur !== doc.documentElement; cur = cur.parentElement) {
+    for (var cur = el; cur && cur !== doc.body && cur !== doc.documentElement; cur = up(cur)) {
       if (!isCandidate(cur)) continue;
       var tag = tagOf(cur);
       if ((tag === "a" || tag === "button" || tag === "label" || tag === "code") && flowHost(cur)) continue;
@@ -143,16 +153,18 @@
     return null;
   }
 
-  /** The nearest heading (h1-h4) at or before `el`: the part itself when it is one. */
+  /** The nearest heading (h1-h4) at or before `el`: the part itself when it is one. Inside a shadow root, the one
+   * before it there, else the one before its host. */
   function heading(el) {
-    var doc = el.ownerDocument;
-    var all = doc.querySelectorAll("h1,h2,h3,h4");
+    var scope = el.getRootNode ? el.getRootNode() : el.ownerDocument;
+    var all = scope.querySelectorAll ? scope.querySelectorAll("h1,h2,h3,h4") : [];
     var found = "";
     for (var i = 0; i < all.length; i += 1) {
       if (all[i] === el || all[i].contains(el)) return text(all[i]);
       if (all[i].compareDocumentPosition(el) & 4) found = text(all[i]);
       else break;
     }
+    if (!found && scope.host) return heading(scope.host);
     return found;
   }
 
