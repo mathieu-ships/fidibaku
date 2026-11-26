@@ -5,10 +5,12 @@
 //
 // A part is, from the node under the pointer upwards, the first of:
 // - a page's own mark: [data-review-id] (not one fidibaku added itself) or [data-cid];
-// - a heading, paragraph, list item, table cell or row, quote, code block, caption, summary, link or button with text;
+// - a heading, paragraph, list item, table cell or row, quote, code block or command, caption, summary, link or button
+//   with text;
 // - a picture, figure, SVG or canvas chart, or video, whatever its text (a picture in a figure is the figure);
 // - a section, card, panel, table or other block holding a little text (8 characters or more).
-// A link, button or label inside running text is the text it sits in. Parts smaller than 12 x 10 px are skipped.
+// A link, button, label or bit of code inside running text is the text it sits in; code inside a <pre> is the <pre>.
+// Parts smaller than 12 x 10 px are skipped.
 (function (root, factory) {
   if (typeof module === "object" && module && module.exports) module.exports = factory();
   else root.fidibakuAnchor = factory();
@@ -23,12 +25,12 @@
     "div", "p", "li", "blockquote", "pre", "figure", "figcaption",
     "img", "picture", "canvas", "svg", "video",
     "table", "caption", "thead", "tbody", "tfoot", "tr", "th", "td",
-    "dl", "dt", "dd", "ul", "ol", "details", "summary", "a", "button", "label"
+    "dl", "dt", "dd", "ul", "ol", "details", "summary", "a", "button", "label", "code"
   ];
   var STYLED = "[role='row'],[role='listitem'],[role='article'],[role='region'],[class*='card'],[class*='panel'],[class*='item'],[class*='row'],[class*='section']";
   var AUTO_SELECTOR = TAGS.join(",") + "," + STYLED;
   // A part with any text at all; the rest need a little text (8 characters) to be more than a wrapper.
-  var WORDS = /^(h[1-6]|p|li|blockquote|pre|figcaption|caption|tr|th|td|dt|dd|summary|a|button|label)$/;
+  var WORDS = /^(h[1-6]|p|li|blockquote|pre|figcaption|caption|tr|th|td|dt|dd|summary|a|button|label|code)$/;
   // Running text a link or button can sit in.
   var FLOW = /^(p|li|td|th|dt|dd|h[1-6]|caption|figcaption|blockquote|summary)$/;
   var INLINE = /^(span|b|strong|em|i|u|s|small|mark|code|kbd|sup|sub|abbr|cite|q|time|var|samp|bdi|bdo|font)$/;
@@ -107,7 +109,8 @@
     for (var cur = el; cur && cur !== doc.body && cur !== doc.documentElement; cur = cur.parentElement) {
       if (!isCandidate(cur)) continue;
       var tag = tagOf(cur);
-      if ((tag === "a" || tag === "button" || tag === "label") && flowHost(cur)) continue;
+      if ((tag === "a" || tag === "button" || tag === "label" || tag === "code") && flowHost(cur)) continue;
+      if (tag === "code" && cur.parentElement && cur.parentElement.closest("pre")) continue;
       if (MEDIA.indexOf(tag) >= 0) {
         var figure = cur.parentElement && cur.parentElement.closest("figure");
         if (figure && isCandidate(figure)) return figure;

@@ -279,7 +279,9 @@ test("every kind of part takes a comment: cells, pictures, figures, charts, code
     ["#fig-img", "figure", "The bench from above"],
     ["#bar", "svg", "Cuts per hour"],
     ["#canvas", "canvas", "Chart"],
-    ["#code", "pre", "node --test test/*.test.js"],
+    ["#code-in-pre", "pre", "node --test test/*.test.js"],
+    ["#command", "code", "compare_frames overhead.png left.png"],
+    ["#inline-code", "p", /^Run npm test/],
     ["#card b", "div", "December kit"],
     ["#button", "button", "Open the review"]
   ];
