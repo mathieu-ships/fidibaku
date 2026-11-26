@@ -3,7 +3,7 @@
 
 const fs = require("fs");
 const path = require("path");
-const { CLIENT_JS, CLIENT_CSS, attach, proxy, serve, urlSidecarTarget } = require("../server/serve");
+const { CLIENT_CSS, attach, clientScript, proxy, serve, urlSidecarTarget } = require("../server/serve");
 const {
   mapToDocument,
   readCommentMap,
@@ -109,7 +109,7 @@ function requireCommentTarget(value, commentsPath) {
 function inlineBundle(file, output) {
   const html = fs.readFileSync(file, "utf8");
   const css = fs.readFileSync(CLIENT_CSS, "utf8");
-  const js = fs.readFileSync(CLIENT_JS, "utf8");
+  const js = clientScript();
   if (html.includes("fidibaku:bundled")) {
     throw new Error("This file already appears to contain a fidibaku bundle.");
   }

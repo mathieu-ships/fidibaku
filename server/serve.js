@@ -9,8 +9,14 @@ const { createToken, requireToken, safeJoin } = require("./security");
 const { mapToDocument, readCommentMap, sidecarPaths, writeSidecars } = require("./writer");
 
 const ROOT = path.resolve(__dirname, "..");
+const ANCHOR_JS = path.join(ROOT, "client", "anchor.js");
 const CLIENT_JS = path.join(ROOT, "client", "review.js");
 const CLIENT_CSS = path.join(ROOT, "client", "review.css");
+
+// The client as pages load it: anchor.js (which part a right-click is on) and then review.js.
+function clientScript() {
+  return fs.readFileSync(ANCHOR_JS, "utf8") + "\n" + fs.readFileSync(CLIENT_JS, "utf8");
+}
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -215,7 +221,7 @@ function createReviewServer(options) {
 
         if (url.pathname === "/__review/client/review.js") {
           res.writeHead(200, { "Content-Type": MIME[".js"], "Cache-Control": "no-store" });
-          res.end(fs.readFileSync(CLIENT_JS));
+          res.end(clientScript());
           return;
         }
 
@@ -500,8 +506,10 @@ function attach(options) {
 }
 
 module.exports = {
+  ANCHOR_JS,
   CLIENT_JS,
   CLIENT_CSS,
+  clientScript,
   injectHtml,
   createServer: createFileServer,
   createFileServer,

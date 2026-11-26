@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Every kind of part</title>
+<style>
+  body { font: 16px/1.4 sans-serif; margin: 0; padding: 20px; }
+  td, th { padding: 6px 10px; }
+  .card { border: 1px solid #ccc; border-radius: 10px; padding: 12px; margin: 10px 0; }
+</style>
+</head>
+<body>
+<!-- One of each kind of part a reviewer points at (anchor.js): a right-click on each must open the comment box on it. -->
+<h2>Scores</h2>
+<p id="para">Six criteria, 0 to 2 each, with <a id="inline-link" href="#x">a link in the text</a> and <b>bold words</b>.</p>
+<ul><li id="item"><b>A. Outcome.</b> The measured property changes the grade.</li></ul>
+<table id="scores">
+  <thead><tr><th>Rank</th><th>Task</th><th>A</th><th>B</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>Hand sawing</td><td id="cell-a1">2</td><td>1</td></tr>
+    <tr><td>2</td><td>Tomato slicing</td><td>1</td><td id="cell-b2">0</td></tr>
+  </tbody>
+</table>
+<h2>Pictures</h2>
+<img id="bare-img" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='60'%3E%3Crect width='120' height='60' fill='%23999'/%3E%3C/svg%3E" width="120" height="60">
+<figure id="fig"><img id="fig-img" alt="Bench from above" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='60'%3E%3Crect width='120' height='60' fill='%23666'/%3E%3C/svg%3E" width="120" height="60"><figcaption>The bench from above</figcaption></figure>
+<svg id="chart" width="200" height="80" viewBox="0 0 200 80"><title>Cuts per hour</title><rect id="bar" x="10" y="20" width="40" height="60" fill="#333"/><text x="60" y="40">40 cuts</text></svg>
+<canvas id="canvas" width="200" height="60"></canvas>
+<h2>Code and cards</h2>
+<pre id="code"><code>node --test test/*.test.js</code></pre>
+<div class="card" id="card"><b>December kit</b> Twelve thousand pounds, knives and a thermometer included.</div>
+<button id="button">Open the review</button>
+</body>
+</html>

@@ -49,7 +49,9 @@ Explicit anchors are preferred when a report is generated repeatedly:
 </section>
 ```
 
-When explicit anchors are absent, Fidibaku creates fallback anchors at runtime for common content elements: sections, headings, paragraphs, cards, lists, tables, figures, and similar reviewable blocks. Fallback anchor IDs are based on element type, DOM path, and a short text summary.
+When explicit anchors are absent, Fidibaku creates fallback anchors at runtime for common content elements: sections, headings, paragraphs, list items, table rows and cells, pictures, figures, SVG and canvas charts, code blocks, cards, links and buttons. A right-click takes the nearest one: a link inside running text comments on the paragraph, a picture inside a figure on the figure. A table cell is named by its row and column ("Hand sawing · A: 2"). Fallback anchor IDs are based on element type, DOM path, and a short text summary.
+
+Which part a right-click is on, and what to call it, lives in `client/anchor.js`, which only reads the page. `review.js` uses it, and so does the comment layer on claws share pages, which vendors it unchanged: change it here and copy it across.
 
 Fallback anchors are re-derived whenever the page re-renders an element in place, so an element that shows different text on different views gets the same ID a fresh load of that view would give it.
 

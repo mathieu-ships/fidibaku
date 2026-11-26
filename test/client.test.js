@@ -33,13 +33,14 @@ after(async () => {
 
 // Each test gets its own copy of the deck, its own sidecars and a fresh
 // browser context (so no localStorage leaks between tests).
-async function setup(t, seed) {
+async function setup(t, seed, fixture) {
   const dir = fs.mkdtempSync(path.join(TMP, "case-"));
-  const file = path.join(dir, "deck.html");
-  fs.copyFileSync(FIXTURE, file);
-  const json = path.join(dir, "deck.comments.json");
+  const name = path.basename(fixture || FIXTURE);
+  const file = path.join(dir, name);
+  fs.copyFileSync(fixture || FIXTURE, file);
+  const json = path.join(dir, name.replace(/\.html$/, ".comments.json"));
   if (seed) {
-    fs.writeFileSync(json, JSON.stringify({ version: 1, target: "deck.html", updatedAt: new Date().toISOString(), comments: seed }, null, 2));
+    fs.writeFileSync(json, JSON.stringify({ version: 1, target: name, updatedAt: new Date().toISOString(), comments: seed }, null, 2));
   }
   const server = createFileServer({ file });
   await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
@@ -261,6 +262,44 @@ test("pages can name their views with window.fidibakuView, a data attribute or a
   await s.page.evaluate(() => { delete window.fidibakuView; delete document.documentElement.dataset.fidibakuView; });
   await s.page.waitForTimeout(400);
   assert.equal(await s.marked("#caption"), true, "back on the meta view");
+});
+
+test("every kind of part takes a comment: cells, pictures, figures, charts, code, cards, links and buttons", async t => {
+  const s = await setup(t, null, path.join(__dirname, "fixtures", "parts.html"));
+  await s.open();
+  // Where each right-click lands, and the part it must open the box on (tag and label).
+  const cases = [
+    ["#para", "p", /^Six criteria/],
+    ["#inline-link", "p", /^Six criteria/],
+    ["#item", "li", /^A\. Outcome/],
+    ["#cell-a1", "td", "Hand sawing · A: 2"],
+    ["#cell-b2", "td", "Tomato slicing · B: 0"],
+    ["#scores th:nth-child(2)", "th", "Task"],
+    ["#bare-img", "img", /^data:image|^Picture$|svg/],
+    ["#fig-img", "figure", "The bench from above"],
+    ["#bar", "svg", "Cuts per hour"],
+    ["#canvas", "canvas", "Chart"],
+    ["#code", "pre", "node --test test/*.test.js"],
+    ["#card b", "div", "December kit"],
+    ["#button", "button", "Open the review"]
+  ];
+  for (const [selector, tag, label] of cases) {
+    await s.page.click(selector, { button: "right" });
+    await s.page.waitForSelector("#cPop.open");
+    const at = await s.page.textContent("#cpopLabel");
+    const shown = at.split(" · ").slice(1).join(" · ") || at;
+    if (label instanceof RegExp) assert.match(shown, label, `${selector}: label`);
+    else assert.equal(shown, label, `${selector}: label`);
+    await s.page.fill("#cpopTa", `on ${selector}`);
+    await s.page.press("#cpopTa", "Enter");
+    const marked = await s.page.$$eval(".has-review-comment", els => els.map(el => el.tagName.toLowerCase()));
+    assert.ok(marked.includes(tag), `${selector}: a ${tag} is marked (${marked.join(", ")})`);
+  }
+  // The link sits in the paragraph, so its right-click edits the paragraph's comment: one fewer than the cases.
+  const items = await s.waitStored(cases.length - 1);
+  assert.ok(items.some(c => c.text === "on #inline-link" && /^auto:p:/.test(c.anchor)), "the link's comment is the paragraph's");
+  assert.ok(items.some(c => c.text === "on #fig-img" && /^auto:figure:/.test(c.anchor)), "the picture's comment is its figure's");
+  assert.ok(items.some(c => c.text === "on #cell-a1" && c.label === "Hand sawing · A: 2"), "a cell is named by its row and column");
 });
 
 test("on a multi-page site, clicking a comment from another page loads that page and highlights it", async t => {
