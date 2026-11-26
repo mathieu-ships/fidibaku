@@ -1,16 +1,11 @@
 (function () {
   "use strict";
 
+  // Which part a right-click is on, and what to call it: client/anchor.js, loaded just before this file.
+  var A = window.fidibakuAnchor;
   var VERSION = 1;
   var SELECTOR = "[data-review-id], [data-cid]";
-  var AUTO_SELECTOR = [
-    "main", "article", "section", "aside", "header", "footer", "nav",
-    "h1", "h2", "h3", "h4", "h5", "h6",
-    "div", "p", "li", "blockquote", "pre", "figure", "figcaption", "img", "canvas",
-    "table", "thead", "tbody", "tr", "th", "td", "dt", "dd",
-    "[role='row']", "[role='listitem']", "[role='article']", "[role='region']",
-    "[class*='card']", "[class*='panel']", "[class*='item']", "[class*='row']", "[class*='section']"
-  ].join(",");
+  var AUTO_SELECTOR = A.AUTO_SELECTOR;
   var REVIEW_UI_SELECTOR = ".cfab,.cmodal,.cpop";
   var comments = {};
   var adapter = null;
@@ -135,84 +130,21 @@
     return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }) || (a < b ? -1 : a > b ? 1 : 0);
   }
 
-  function textSummary(el, fallback) {
-    var text = String(el.innerText || el.textContent || "").replace(/\s+/g, " ").trim();
-    if (!text) return fallback;
-    return text.length > 80 ? text.slice(0, 77) + "..." : text;
-  }
-
-  function hashString(value) {
-    var hash = 2166136261;
-    for (var i = 0; i < value.length; i += 1) {
-      hash ^= value.charCodeAt(i);
-      hash = Math.imul(hash, 16777619);
-    }
-    return (hash >>> 0).toString(36);
-  }
-
-  function elementPath(el) {
-    var parts = [];
-    var cur = el;
-    while (cur && cur.nodeType === 1 && cur !== document.body && parts.length < 8) {
-      var tag = cur.tagName.toLowerCase();
-      var index = 1;
-      var sib = cur;
-      while ((sib = sib.previousElementSibling)) {
-        if (sib.tagName === cur.tagName) index += 1;
-      }
-      parts.unshift(tag + ":nth-of-type(" + index + ")");
-      cur = cur.parentElement;
-    }
-    return parts.join(">");
-  }
-
-  function autoGroup(el) {
-    var section = el.closest("section, article, main, aside, nav, header, footer");
-    if (section && section !== el) {
-      var heading = section.querySelector("h1,h2,h3,h4,h5,h6");
-      if (heading) return textSummary(heading, "Auto");
-    }
-    var tag = el.tagName.toLowerCase();
-    if (/^h[1-6]$/.test(tag)) return "Headings";
-    if (tag === "tr" || tag === "td" || tag === "th" || tag === "table") return "Tables";
-    if (tag === "li") return "Lists";
-    return "Auto";
-  }
+  var hashString = A.hash;
 
   function ownTitle(value) {
     value = String(value || "");
     return value.indexOf("Comment: ") === 0 || value.indexOf("Resolved comment: ") === 0;
   }
 
-  function autoLabel(el) {
-    var title = el.getAttribute("title");
-    var explicit = el.getAttribute("aria-label") || (ownTitle(title) ? "" : title);
-    if (explicit) return explicit;
-    return textSummary(el, el.tagName.toLowerCase());
-  }
-
   function isAutoCandidate(el, alreadyAuto) {
     if (!el || el.nodeType !== 1) return false;
     if (el.closest(REVIEW_UI_SELECTOR)) return false;
-    if (el.matches("script,style,link,meta,template,br,hr")) return false;
     if (!alreadyAuto && el.matches(SELECTOR)) return false;
-    var rect = el.getBoundingClientRect();
-    if (rect.width < 12 || rect.height < 10) return false;
-    var text = String(el.innerText || el.textContent || "").replace(/\s+/g, " ").trim();
-    var tag = el.tagName.toLowerCase();
-    if (/^h[1-6]$/.test(tag) || tag === "tr" || tag === "td" || tag === "th") return text.length > 0;
-    if (["main", "article", "section", "aside", "header", "footer", "nav", "table", "tbody", "thead"].indexOf(tag) >= 0) return text.length >= 8;
-    if (["div", "p", "li", "blockquote", "pre", "figure", "figcaption", "dt", "dd"].indexOf(tag) >= 0) return text.length >= 8;
-    if (tag === "img" || tag === "canvas") return !!(el.getAttribute("alt") || el.getAttribute("title") || el.getAttribute("aria-label"));
-    if (el.matches("[role='row'],[role='listitem'],[role='article'],[role='region'],[class*='card'],[class*='panel'],[class*='item'],[class*='row'],[class*='section']")) return text.length >= 8;
-    return false;
+    return A.isCandidate(el);
   }
 
-  function autoId(el) {
-    var tag = el.tagName.toLowerCase();
-    var text = textSummary(el, tag);
-    return "auto:" + tag + ":" + hashString(tag + "|" + elementPath(el) + "|" + text);
-  }
+  var autoId = A.autoId;
 
   function clearMarker(el) {
     el.classList.remove("has-review-comment", "has-comment");
@@ -224,8 +156,8 @@
     if (!el || !isAutoCandidate(el)) return null;
     if (itemId(el)) return el;
     el.dataset.reviewId = autoId(el);
-    el.dataset.reviewGroup = autoGroup(el);
-    el.dataset.reviewLabel = autoLabel(el);
+    el.dataset.reviewGroup = A.group(el);
+    el.dataset.reviewLabel = A.label(el, 80);
     el.dataset.reviewAuto = "true";
     return el;
   }
@@ -248,8 +180,8 @@
     var next = autoId(el);
     if (next !== el.dataset.reviewId) {
       el.dataset.reviewId = next;
-      el.dataset.reviewGroup = autoGroup(el);
-      el.dataset.reviewLabel = autoLabel(el);
+      el.dataset.reviewGroup = A.group(el);
+      el.dataset.reviewLabel = A.label(el, 80);
     }
     return el;
   }
@@ -260,17 +192,14 @@
     scope.querySelectorAll(AUTO_SELECTOR).forEach(ensureAutoAnchor);
   }
 
+  // The page's own mark wins; otherwise the part anchor.js picks (a cell, a picture's figure, the paragraph a link
+  // sits in), given an auto ID now if it has none yet.
   function findReviewTarget(target) {
-    var el = target && target.closest ? target.closest(SELECTOR) : null;
-    if (el && !el.closest(REVIEW_UI_SELECTOR) && refreshAutoAnchor(el)) return el;
-
-    var cur = target && target.nodeType === 1 ? target : target.parentElement;
-    while (cur && cur !== document.documentElement) {
-      var anchored = ensureAutoAnchor(cur);
-      if (anchored) return anchored;
-      cur = cur.parentElement;
-    }
-    return null;
+    var el = A.target(target, { skip: function (node) { return !!node.closest(REVIEW_UI_SELECTOR); } });
+    if (!el) return null;
+    if (el.dataset.reviewAuto === "true") return refreshAutoAnchor(el);
+    if (itemId(el)) return el;
+    return ensureAutoAnchor(el);
   }
 
   function commentIds() {
